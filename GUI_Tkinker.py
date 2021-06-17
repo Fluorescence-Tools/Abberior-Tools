@@ -12,16 +12,15 @@ Info   : The code is mainly splitted into three part.
          Due to dynamic of code some parameter need to be defined in this script. They should not be transfered elsewhere.
 """
 # import packages and modules####
-import sys
-sys.path.append('C:/Users/Abberior_admin/Desktop/GUI')
 from FUNCTION import *
 import FUNCTION as func
+import tkinter
 
 # Define path to main GUI directory
 path = 'C:/Users/Abberior_admin/Desktop/GUI/'    #Type here the directory of GUI python file is stored: path = 'C:/Users/Abberior_admin/Desktop/GUI/'
 
 # Create main graphical interface
-root= Tk()
+root= tkinter.Tk()
 frame_top, label, frame_top2, frame_top3, frame_top4, labtext_1, T, style, nb, page1, page2, page3, page4, frame_spacer_01,frame_5, frame_6, frame_7, frame_8, a, colour, foldername, pxsize_01,ROIsize_01, dwell_01, frames_01, var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15, L485_value_01,L518_value_01,L561_value_01, L640_value_01, L595_value_01, L775_value_01, MultiRUN_01,  laser_overview_value, laser_overview_entry, frames_overview_value,ROIsize_overview_value, dwell_overview_value, pxsize_overview_value = func.layout(path, root)
 
 # Here the Buttons and the corresponding function are defined (Buttons with action)
