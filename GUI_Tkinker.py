@@ -10,17 +10,38 @@ Info   : The code is mainly splitted into three part.
                which contains the coarse appearance of GUI.
             3. The function which are defined here ONLY defines the Buttons in GUI
          Due to dynamic of code some parameter need to be defined in this script. They should not be transfered elsewhere.
+
 """
 # import packages and modules####
-from FUNCTION import *
+#from FUNCTION import *
 import FUNCTION as func
-import tkinter
+import tkinter as tk
+import specpy
+import numpy as np
+from functools import partial
+#edits by NV
+#this code has numerous serious issues
+#it works, but it contains several features that are considered bad practice
+#it had wildcard import - now fixed
+#namespace names are overwritten with variable names, e.g.
+#   import impspector as im; im = Image.image()
+#a consequence is that in each function namespaces are reloaded
+#global variables are used at random places
+#button handles and variables are passed in long lists of function returns
+#   making it easy to mistake the order.
+#several pieces of code are repeated multiple times - they should go in functions
+#there are a lot of pieces whose function seem unnesecary.
+#
+#as a solution one might:
+#build the app into a class, solving the need for global variables and
+#   passing so many variables
+#going through the whole of the code to much-out unneeded parts.
 
 # Define path to main GUI directory
 path = 'C:/Users/Abberior_admin/Desktop/GUI/'    #Type here the directory of GUI python file is stored: path = 'C:/Users/Abberior_admin/Desktop/GUI/'
 
 # Create main graphical interface
-root= tkinter.Tk()
+root= tk.Tk()
 frame_top, label, frame_top2, frame_top3, frame_top4, labtext_1, T, style, nb, page1, page2, page3, page4, frame_spacer_01,frame_5, frame_6, frame_7, frame_8, a, colour, foldername, pxsize_01,ROIsize_01, dwell_01, frames_01, var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15, L485_value_01,L518_value_01,L561_value_01, L640_value_01, L595_value_01, L775_value_01, MultiRUN_01,  laser_overview_value, laser_overview_entry, frames_overview_value,ROIsize_overview_value, dwell_overview_value, pxsize_overview_value = func.layout(path, root)
 
 # Here the Buttons and the corresponding function are defined (Buttons with action)
@@ -98,39 +119,38 @@ def MultiRun_meas():
         func.SAVING(save_path, a)
 
   
-button_1 = Button(labtext_1, width = 10,            text = 'Connect',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Connect,anchor = 'w'                  ).grid(row = 0, column = 0)
-button_2 = Button(labtext_1, width = 9,             text = 'Overview', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(Overview,0,0, a), anchor = 'w').grid(row = 0, column = 1)
-button_3 = Button(labtext_1, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Findpeak                              ).grid(row = 0,column = 2)
-button_4 = Button(labtext_1, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(Run_meas,0,0)                 ).grid(row = 0, column = 3)
-button_5 = Button(labtext_1, width = 10,height =1,  text = 'Set value',activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = SET_VALUE                             ).grid(row = 1, column = 0)
-button_6 = Button(labtext_1, width = 9, height =1,  text = 'Power',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = powerseries                           ).grid(row = 1, column = 1)
-button_7 = Button(labtext_1, width = 9, height =1,  text = 'Pinhole',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = pinholeseries                         ).grid(row = 1, column = 2)
-button_8 = Button(labtext_1, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = MultiRun_meas                         ).grid(row = 1, column = 3)
+button_1 = tk.Button(labtext_1, width = 10,            text = 'Connect',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Connect,anchor = 'w'                  ).grid(row = 0, column = 0)
+button_2 = tk.Button(labtext_1, width = 9,             text = 'Overview', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(Overview,0,0, a), anchor = 'w').grid(row = 0, column = 1)
+button_3 = tk.Button(labtext_1, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Findpeak                              ).grid(row = 0,column = 2)
+button_4 = tk.Button(labtext_1, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(Run_meas,0,0)                 ).grid(row = 0, column = 3)
+button_5 = tk.Button(labtext_1, width = 10,height =1,  text = 'Set value',activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = SET_VALUE                             ).grid(row = 1, column = 0)
+button_6 = tk.Button(labtext_1, width = 9, height =1,  text = 'Power',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = powerseries                           ).grid(row = 1, column = 1)
+button_7 = tk.Button(labtext_1, width = 9, height =1,  text = 'Pinhole',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = pinholeseries                         ).grid(row = 1, column = 2)
+button_8 = tk.Button(labtext_1, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = MultiRun_meas                         ).grid(row = 1, column = 3)
 
 
-scale_01_label= Label(frame_7, text='Thres:', height = 1,foreground= 'white', background =colour, font = ('Sans','9','bold'))
-scale_01_label.grid(row = 0, column = 0, sticky = W+N)
-scale_01 = Scale(frame_7, from_=0.5, to=5, showvalue=1, background =colour)
+scale_01_label= tk.Label(frame_7, text='Thres:', height = 1,foreground= 'white', background =colour, font = ('Sans','9','bold'))
+scale_01_label.grid(row = 0, column = 0, sticky = tk.W+tk.N)
+scale_01 = tk.Scale(frame_7, from_=0.5, to=5, showvalue=1, background =colour)
 scale_01_value = scale_01.get()
 scale_01.set(20)
 scale_01.bind("<ButtonRelease-1>", RELEASE)
-scale_01.grid(row = 1, column = 0, sticky = W+N)
+scale_01.grid(row = 1, column = 0, sticky = tk.W+tk.N)
 
-scale_02_label= Label(frame_7, text='Rmin:', height = 1,foreground= 'white', background =colour, font = ('Sans','9','bold'))
-scale_02_label.grid(row = 0, column = 1, sticky = W+N)
-scale_02 = Scale(frame_7, from_=1, to=50, showvalue=1, background =colour)
+scale_02_label= tk.Label(frame_7, text='Rmin:', height = 1,foreground= 'white', background =colour, font = ('Sans','9','bold'))
+scale_02_label.grid(row = 0, column = 1, sticky = tk.W+tk.N)
+scale_02 = tk.Scale(frame_7, from_=1, to=50, showvalue=1, background =colour)
 scale_02_value = scale_02.get()
 scale_02.set(20)
 scale_02.bind("<ButtonRelease-1>", RELEASE)
-scale_02.grid(row = 1, column = 1, sticky = W+N)
+scale_02.grid(row = 1, column = 1, sticky = tk.W+tk.N)
 
-scale_03_label= Label(frame_7, text='Rmax:', height = 1,foreground= 'white', background =colour, font = ('Sans','9','bold') )
-scale_03_label.grid(row = 0, column = 2, sticky = W+N)
-scale_03 = Scale(frame_7, from_=1, to=50, showvalue=1, background =colour)
+scale_03_label= tk.Label(frame_7, text='Rmax:', height = 1,foreground= 'white', background =colour, font = ('Sans','9','bold') )
+scale_03_label.grid(row = 0, column = 2, sticky = tk.W+tk.N)
+scale_03 = tk.Scale(frame_7, from_=1, to=50, showvalue=1, background =colour)
 scale_03_value = scale_03.get()
-scale_03.set(10)
+scale_03.set(50)
 scale_03.bind("<ButtonRelease-1>", RELEASE)
-scale_03.grid(row = 1, column = 2, sticky = W+N)
-
+scale_03.grid(row = 1, column = 2, sticky = tk.W+tk.N)
 
 root.mainloop()

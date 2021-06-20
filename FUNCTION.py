@@ -4,6 +4,23 @@ Created on Tue May 19 15:41:20 2020
 
 @author: Abberior_admin
 """
+#edits by NV
+#this code has numerous serious issues
+#it works, but it contains several features that are considered bad practice
+#it had wildcard import - now fixed
+#namespace names are overwritten with variable names, e.g.
+#   import impspector as im; im = Image.image()
+#a consequence is that in each function namespaces are reloaded
+#global variables are used at random places
+#button handles and variables are passed in long lists of function returns
+#   making it easy to mistake the order.
+#several pieces of code are repeated multiple times - they should go in functions
+#there are a lot of pieces whose function seem unnesecary.
+#
+#as a solution one might:
+#build the app into a class, solving the need for global variables and
+#   passing so many variables
+#going through the whole of the code to much-out unneeded parts.
 #from tkinter import*
 from PIL import Image,ImageTk
 from tkinter import ttk
@@ -21,7 +38,7 @@ import cv2
 from lmfit import Model
 import shutil
 import matplotlib.cm as cm
-import tkinter
+import tkinter as tk
 
 def SSS(scale_03_value):
     Findpeak()
@@ -162,10 +179,10 @@ def Connect(T):
         
     if a==0:
         print('connect')
-        T.insert(END, 'Connected')
+        T.insert(tk.END, 'Can connect to Imspector')
     else:
         print('disconnect')
-        T.insert(END, 'Disconnected')
+        T.insert(tk.END, 'Cannot connect to Imspector')
     return a
 
 
@@ -206,7 +223,7 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
     laser_steps = len(laser_overview)
     number_linesteps = laser_steps
     
-    #this piece of code seems to set which lasers are active, but can it be shorter? Should it be left as-is?
+    #this piece of code seems to set which lasers are active, but can it be simpler? Should it be left as-is?
     LASER_ACT =[]
     for i in range(len(laser_overview)):
         if laser_overview[i]  == 485:laservalue = 0
@@ -219,12 +236,12 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
         laser_activ = [False]*8 
         laser_activ[laservalue] = True
         LASER_ACT.append(laser_activ)
-    if not len(LASER_ACT) == 8:
-        calc = 8-len(LASER_ACT)
-        for i in range(calc):
-            LASER_ACT.append([False]*8)
+#    this exception should never occur
+#    if not len(LASER_ACT) == 8:
+#        calc = 8-len(LASER_ACT)
+#        for i in range(calc):
+#            LASER_ACT.append([False]*8)
 #    print(LASER_ACT)
-            
     
     #this sets which linesteps are active
     linesteps = [False]*8
@@ -236,125 +253,113 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
     
     ############
 
+    #a is a global that is set to 0 if a connection can be established
+    # set to 1 otherwise.
+    #the connection is reset here anyway, so it seems like it only tests the connection
+#    if a==0:  #a is a global that is set to True if a connection can be established
     
-    if a==0:  #what is a?
-        path = 'D:/current data/'
-        im = specpy.Imspector()    
-        c=im.create_measurement()
-                
-        if Multi == 1: # why is MULTI needed for an overview?
-            print('MULTIRUN')
-            c.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) # current stage position in x [m]
-        else:
-            print('non MULTIRUN')
-    
-#        if Activate_QFS == True:
-#            M_obj= im.measurement(c.name())
-        #a bunch of these steps are default and can be put into a helper function
-        c.set_parameters('ExpControl/scan/range/mode',xyt_mode)
-        c.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
-        c.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
-        c.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
-        c.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
-        c.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
-        c.set_parameters('ExpControl/scan/range/x/len',roi_size)
-        c.set_parameters('ExpControl/scan/range/y/len',roi_size)
-        c.set_parameters('ExpControl/scan/range/z/len',0)
-        c.set_parameters('Pinhole/pinhole_size', 10e-5)
-        c.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
-        c.set_parameters('ExpControl/scan/range/t/res',number_frames)
-        c.set_parameters('HydraHarp/data/streaming/enable', False)
-        c.set_parameters('HydraHarp/is_active', True)
-        c.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
-        c.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0)
-        c.set_parameters('ExpControl/gating/tcspc/channels/0/stream', 'HydraHarp')
-        c.set_parameters('ExpControl/gating/tcspc/channels/1/mode', 0)
-        c.set_parameters('ExpControl/gating/tcspc/channels/1/stream', 'HydraHarp')
-        c.set_parameters('ExpControl/gating/tcspc/channels/2/mode', 0)
-        c.set_parameters('ExpControl/gating/tcspc/channels/2/stream', 'HydraHarp')
-        c.set_parameters('ExpControl/gating/tcspc/channels/3/mode', 0)
-        c.set_parameters('ExpControl/gating/tcspc/channels/3/stream', 'HydraHarp')
-        c.set_parameters('ExpControl/scan/detsel/detsel',['APD1', 'APD2', 'APD3', 'APD4'])
-        c.set_parameters('ExpControl/gating/linesteps/chans_enabled',[True, True, True, True])
-        c.set_parameters('ExpControl/gating/pulses/pulse_chan/delay',[0.0, 0.0, 0.0, 0.0])
-        c.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
-        c.set_parameters('ExpControl/gating/linesteps/laser_on',LASER_ACT)
-
-        #why only if laser steps = 1?
-        if laser_steps == 1:
-            c.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
-            c.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[0])
-            c.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, True, True, True],[True, True, True, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
-            
-        else: 
-            for i in range(len(laser_overview)):
-                if laser_overview[i]  == 485:laservalue = 0
-                elif laser_overview[i]  == 518:laservalue = 1
-                elif laser_overview[i]  == 595:laservalue = 2
-                elif laser_overview[i]  == 561:laservalue = 3
-                elif laser_overview[i]  == 640:laservalue = 4
-                elif laser_overview[i]  == 775:laservalue = 5
-                c.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[i])
-            c.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
-            c.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, False, True, False],[False, True, False, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
-        
-        #here the measurement is actually run
-        meas= im.active_measurement()
-        im.run(meas)
-        
-        #time.sleep(1)
-        #here the data is read out of the image
-        stk_names = meas.stack_names()
-        stk0 = meas.stack(0)
-        stk1 = meas.stack(1)
-        stk2 = meas.stack(2)
-        stk3 = meas.stack(3)
-        pix_data0 = stk0.data()
-        pix_data1 = stk1.data()
-        pix_data2 = stk2.data()
-        pix_data3 = stk3.data()
-
-        pix_data = pix_data0
-        r1 = 0
-        r2 = 0
-        print(pix_data0.shape)
-        #here some adding is done, but this multiplication factor x10 is dubious
-        if pix_data0.shape == (1,number_frames,np.round(px_num,0),np.round(px_num,0)):
-            r1 = (np.sum(pix_data0, axis=1)[0] + np.sum(pix_data2, axis=1)[0])*10
-            r2 = (np.sum(pix_data1, axis=1)[0] + np.sum(pix_data3, axis=1)[0])*10
-            io_green = Image.fromarray(r1)
-            io_red =   Image.fromarray(r2)
-            pp.imshow(io_red)
-
-            #this seems like it can go.
-            if laser_steps == 1:
-                data = io_red
-            else:
-                #data =  r2
-                data = io_red
-
-        #this is capturing some bug where the data has funky dimensions
-        elif pix_data.shape == (1, px_num, px_num, 1):
-            io = Image.fromarray(pix_data[0,:,:,0]*10)
-            pp.imshow(io)
-            data = io
-        else:
-            io = Image.fromarray((np.mean(pix_data, axis=3)[0])*10) # create greyscale image object  
-            pp.imshow(io)
-            data = io
-    #this else statement seems unneeded
+    path = 'D:/current data/'
+    im = specpy.Imspector()#re-get connection
+    c=im.create_measurement()
+           
+    # overview is called multiple times to identify spot locations for the next spot.
+    if Multi == 1: 
+        print('MULTIRUN')
+        c.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) # current stage position in x [m]
     else:
-        #these if statements too
-        if circle == 0:
-            #path = 'C:/Users/buddeja/Desktop/GUI/'
-            r1 =1
-            r2 = 2
-            data = Image.open('{}{}'.format(path,'offline_image.tiff'))
-        elif circle == 1:
-            #path = 'C:/Users/buddeja/Desktop/GUI/'
-            r1 =1
-            r2 = 2
-            data = Image.open('{}{}'.format(path,'offline_image.tiff'))
+        print('non MULTIRUN')
+
+    #a bunch of these steps are default and can be put into a helper function
+    setDefaultMeasurementSettings(c)
+    c.set_parameters('ExpControl/scan/range/mode',xyt_mode)
+    c.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
+    c.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
+    c.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
+    c.set_parameters('ExpControl/scan/range/x/len',roi_size)
+    c.set_parameters('ExpControl/scan/range/y/len',roi_size)
+
+    c.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
+    c.set_parameters('ExpControl/scan/range/t/res',number_frames)
+
+    c.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
+
+    c.set_parameters('ExpControl/gating/linesteps/laser_on',LASER_ACT)
+
+    #why only if laser steps = 1?
+    if laser_steps == 1:
+        c.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
+        c.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[0])
+        c.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, True, True, True],[True, True, True, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
+        
+    else: 
+        for i in range(len(laser_overview)):
+            if laser_overview[i]  == 485:laservalue = 0
+            elif laser_overview[i]  == 518:laservalue = 1
+            elif laser_overview[i]  == 595:laservalue = 2
+            elif laser_overview[i]  == 561:laservalue = 3
+            elif laser_overview[i]  == 640:laservalue = 4
+            elif laser_overview[i]  == 775:laservalue = 5
+            c.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[i])
+        c.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
+        c.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, False, True, False],[False, True, False, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
+    
+    #here the measurement is actually run
+    meas= im.active_measurement()
+    im.run(meas)
+    
+    #time.sleep(1)
+    #here the data is read out of the image
+    stk_names = meas.stack_names()
+    stk0 = meas.stack(0)
+    stk1 = meas.stack(1)
+    stk2 = meas.stack(2)
+    stk3 = meas.stack(3)
+    pix_data0 = stk0.data()
+    pix_data1 = stk1.data()
+    pix_data2 = stk2.data()
+    pix_data3 = stk3.data()
+
+    pix_data = pix_data0
+    r1 = 0
+    r2 = 0
+    print(pix_data0.shape)
+    #here some adding is done, but this multiplication factor x10 is dubious
+    if pix_data0.shape == (1,number_frames,np.round(px_num,0),np.round(px_num,0)):
+        r1 = (np.sum(pix_data0, axis=1)[0] + np.sum(pix_data2, axis=1)[0])*10
+        r2 = (np.sum(pix_data1, axis=1)[0] + np.sum(pix_data3, axis=1)[0])*10
+        io_green = Image.fromarray(r1)
+        io_red =   Image.fromarray(r2)
+        pp.imshow(io_red)
+
+        #this seems like it can go.
+        if laser_steps == 1:
+            data = io_red
+        else:
+            #data =  r2
+            data = io_red
+
+    #this is capturing some bug where the data has funky dimensions
+    elif pix_data.shape == (1, px_num, px_num, 1):
+        io = Image.fromarray(pix_data[0,:,:,0]*10)
+        pp.imshow(io)
+        data = io
+    else:
+        io = Image.fromarray((np.mean(pix_data, axis=3)[0])*10) # create greyscale image object  
+        pp.imshow(io)
+        data = io
+    #this else statement seems unneeded
+#    else:
+#        #these if statements too
+#        if circle == 0:
+#            #path = 'C:/Users/buddeja/Desktop/GUI/'
+#            r1 =1
+#            r2 = 2
+#            data = Image.open('{}{}'.format(path,'offline_image.tiff'))
+#        elif circle == 1:
+#            #path = 'C:/Users/buddeja/Desktop/GUI/'
+#            r1 =1
+#            r2 = 2
+#            data = Image.open('{}{}'.format(path,'offline_image.tiff'))
             
 
 
@@ -371,13 +376,34 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
     photo = Image.fromarray(photo)
     photo = photo.resize((300, 300), Image.ANTIALIAS)
     photo = ImageTk.PhotoImage(photo)
-    label = Label(frame_top,image=photo)
+    label = tk.Label(frame_top,image=photo)
     label.image = photo
     label.grid(row=0)
-    T.delete('1.0', END) 
-    T.insert(END, "Overview created") 
+    T.delete('1.0', tk.END) 
+    T.insert(tk.END, "Overview created") 
     return data, roi_size, r1, r2, x_pixelsize
   
+def setDefaultMeasurementSettings(meas):
+    """for most of the measurement a lot of settings are default, they are set
+    for the meas object that is passed to this function"""
+    meas.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
+    meas.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
+    meas.set_parameters('HydraHarp/data/streaming/enable', False)
+    meas.set_parameters('HydraHarp/is_active', True)
+    meas.set_parameters('ExpControl/scan/range/z/len',0)
+    meas.set_parameters('Pinhole/pinhole_size', 10e-5)
+    meas.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0)
+    meas.set_parameters('ExpControl/gating/tcspc/channels/0/stream', 'HydraHarp')
+    meas.set_parameters('ExpControl/gating/tcspc/channels/1/mode', 0)
+    meas.set_parameters('ExpControl/gating/tcspc/channels/1/stream', 'HydraHarp')
+    meas.set_parameters('ExpControl/gating/tcspc/channels/2/mode', 0)
+    meas.set_parameters('ExpControl/gating/tcspc/channels/2/stream', 'HydraHarp')
+    meas.set_parameters('ExpControl/gating/tcspc/channels/3/mode', 0)
+    meas.set_parameters('ExpControl/gating/tcspc/channels/3/stream', 'HydraHarp')
+    meas.set_parameters('ExpControl/scan/detsel/detsel',['APD1', 'APD2', 'APD3', 'APD4'])
+    meas.set_parameters('ExpControl/gating/linesteps/chans_enabled',[True, True, True, True])
+    meas.set_parameters('ExpControl/gating/pulses/pulse_chan/delay',[0.0, 0.0, 0.0, 0.0])
+    meas.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
     
 def Findpeak(path, foldername, scale_01, scale_02, scale_03, roi_size, frame_top, T, frame_top3, a, circle, pixelsize_global):
     from PIL import Image,ImageTk
@@ -1368,18 +1394,20 @@ def SAVING(path,a):
 def layout(path, root):
     
     root.title("Imspector Control Interface")
-    root1 = tkinter.Frame(root, width = 350, height = 350, bg = 'grey')
+    root1 = tk.Frame(root, width = 350, height = 350, bg = 'grey')
     root1.grid()
    
     foldername= 'testfolder'                         #testfolder'#Type here the foldername
  
-    image_ID = Image.open('Alphatubulin.tif')
-    resized = image_ID.resize((300, 300), Image.ANTIALIAS)
-    photo = ImageTk.PhotoImage(resized)
+    image_ID = Image.open(r'C:\Users\Abberior_admin\Desktop\Abberior-Tools\Alphatubulin.tif')
+    resized = image_ID.resize((400, 400), Image.ANTIALIAS)
+    #when debugging, multiple tk instances can exist, then the master must be
+    #specified for it to link the image with the right tcl instance.
+    photo = ImageTk.PhotoImage(resized, master = root)
     colour = 'grey'
     txtcolour = 'white'
     space = 10
-    framespacer= tkinter.Frame(root1, width = space, height = 2, bg = colour)
+    framespacer= tk.Frame(root1, width = space, height = 2, bg = colour)
     
     
     frame_s1 = framespacer
@@ -1394,30 +1422,30 @@ def layout(path, root):
     frame_s5.grid(row=2, column=1, sticky = 'n')
     frame_s6 = framespacer
     frame_s6.grid(row=2, column=2, sticky = 'n')
-    frame_top = tkinter.Frame(root1, width = 300, height = 300, bg = colour)
+    frame_top = tk.Frame(root1, width = 400, height = 400, bg = colour)
     frame_top.grid(row=1, column=1)
-    label = tkinter.Label(frame_top,image=photo)
+    label = tk.Label(frame_top,image=photo)
     label.image = photo
     label.grid(row=0)
     
-    frame_top2 = tkinter.Frame(root1, width = 300, height = 300, bg = colour)
+    frame_top2 = tk.Frame(root1, width = 400, height = 300, bg = colour)
     frame_top2.grid(row=3, column=1)
     frame_top2.grid_propagate(0)
     
-    frame_top3 = tkinter.Frame(root1, width = 300, height = 300, bg = colour)
+    frame_top3 = tk.Frame(root1, width = 400, height = 400, bg = colour)
     frame_top3.grid(row= 1, column=2, sticky = 'n')
     
-    frame_top4 = tkinter.Frame(root1, width = 300, height = 300, bg = colour)
+    frame_top4 = tk.Frame(root1, width = 400, height = 300, bg = colour)
     frame_top4.grid(row=3, column=2, sticky = 'n')
 
     f = pp.figure(figsize=(2,2), dpi=150, edgecolor='k')
     canvas = FigureCanvasTkAgg(f, master = frame_top3)
     canvas.get_tk_widget().grid(row=0, column=0)
     
-    labtext_1 = tkinter.Label(frame_top4,width = 300, height = 200,bg = colour)
+    labtext_1 = tk.Label(frame_top4,width = 300, height = 200,bg = colour)
     labtext_1.grid(row=1, column = 0, sticky = 's')
     
-    T = tkinter.Text(frame_top4, height=10, width=37)
+    T = tk.Text(frame_top4, height=10, width=37)
     T.grid()
 
     style = ttk.Style()
@@ -1453,265 +1481,268 @@ def layout(path, root):
     page4 = ttk.Frame(nb)
     nb.add(page4, text='Pinholeseries')
     
+    page5 = ttk.Frame(nb)
+    nb.add(page5, text='pointMeasurement')
     
     
     
-    frame_spacer_01 = tkinter.Frame(page2, width = 50, height = 1, background =colour)
+    
+    frame_spacer_01 = tk.Frame(page2, width = 50, height = 1, background =colour)
     frame_spacer_01.grid(row=0, column=0, sticky = 'w')
     
-    frame_5 = tkinter.Frame(frame_spacer_01, width = 150, height = 110, background = colour)
+    frame_5 = tk.Frame(frame_spacer_01, width = 150, height = 110, background = colour)
     frame_5.grid(row=0, column=0, sticky = 'wn')
     frame_5.grid_propagate (False)
     
-    frame_6 = tkinter.Frame(frame_spacer_01, width = 150, height = 180, background = colour)
+    frame_6 = tk.Frame(frame_spacer_01, width = 150, height = 180, background = colour)
     frame_6.grid(row=1, column=0, sticky = 'wn')
     frame_6.grid_propagate (False)
     
-    frame_7 = tkinter.Frame(frame_spacer_01, width = 150, height = 180, background = colour)
+    frame_7 = tk.Frame(frame_spacer_01, width = 150, height = 180, background = colour)
     frame_7.grid(row=1, column=1, sticky = 'wn')
     frame_7.grid_propagate (False)
     
-    frame_8 = tkinter.Frame(frame_spacer_01, width = 150, height = 110, background = colour)
+    frame_8 = tk.Frame(frame_spacer_01, width = 150, height = 110, background = colour)
     frame_8.grid(row=0, column=1, sticky = 'wn')
     frame_8.grid_propagate (False)
     
-    laser= tkinter.Label(page3, text=' Laser:', height = 1, foreground= txtcolour, background=colour)
+    laser= tk.Label(page3, text=' Laser:', height = 1, foreground= txtcolour, background=colour)
     laser.grid(row = 0, column = 0)
-    laser_01 = tkinter.Entry(page3,width = 8)
-    laser_01.insert(tkinter.END, '561')
+    laser_01 = tk.Entry(page3,width = 8)
+    laser_01.insert(tk.END, '561')
     laser_01.grid(row = 0,column = 1)
     
     
 #### Overview tab ######   
 
-    space= tkinter.Label(page1, text='', height = 1 , foreground= txtcolour, background=colour)
-    space.grid(row = 0, column = 0 , sticky = tkinter.W+tkinter.N)
+    space= tk.Label(page1, text='', height = 1 , foreground= txtcolour, background=colour)
+    space.grid(row = 0, column = 0 , sticky = tk.W+tk.N)
     
-    dwell_overview= tkinter.Label(page1, text=' Dwelltime [us]:', height = 1 , foreground= txtcolour, background=colour)
-    dwell_overview.grid(row = 1, column = 0 , sticky = tkinter.W + tkinter.N)
-    dwell_overview_value = tkinter.Entry(page1,width = 3, foreground= 'white', bg = 'grey')
-    dwell_overview_value.insert(tkinter.END, '10')
+    dwell_overview= tk.Label(page1, text=' Dwelltime [us]:', height = 1 , foreground= txtcolour, background=colour)
+    dwell_overview.grid(row = 1, column = 0 , sticky = tk.W + tk.N)
+    dwell_overview_value = tk.Entry(page1,width = 3, foreground= 'white', bg = 'grey')
+    dwell_overview_value.insert(tk.END, '10')
     dwell_overview_value.grid(row = 1, column = 1, sticky = 'w')
     
-    pxsize_overview= tkinter.Label(page1, text=' Pixelsize [nm]:', height = 1,foreground= txtcolour, background=colour)
+    pxsize_overview= tk.Label(page1, text=' Pixelsize [nm]:', height = 1,foreground= txtcolour, background=colour)
     pxsize_overview.grid(row = 2, column = 0, sticky = 'wn')
-    pxsize_overview_value = tkinter.Entry(page1, width = 3, foreground= 'white', bg = 'grey')
-    pxsize_overview_value.insert(tkinter.END, '200')
+    pxsize_overview_value = tk.Entry(page1, width = 3, foreground= 'white', bg = 'grey')
+    pxsize_overview_value.insert(tk.END, '200')
     pxsize_overview_value.grid(row = 2, column = 1, sticky = 'w')
     
-    ROIsize_overview= tkinter.Label(page1, text=' ROIsize [um]:', height = 1,foreground= txtcolour, background=colour)
+    ROIsize_overview= tk.Label(page1, text=' ROIsize [um]:', height = 1,foreground= txtcolour, background=colour)
     ROIsize_overview.grid(row = 3, column = 0, sticky = 'wn')
-    ROIsize_overview_value = tkinter.Entry(page1,width = 3, foreground= 'white', bg = 'grey')
-    ROIsize_overview_value.insert(tkinter.END, '70')
+    ROIsize_overview_value = tk.Entry(page1,width = 3, foreground= 'white', bg = 'grey')
+    ROIsize_overview_value.insert(tk.END, '70')
     ROIsize_overview_value.grid(row = 3, column = 1, sticky = 'w')
     
-    frames_overview= tkinter.Label(page1, text=' # Frames:           ', height = 1, foreground= txtcolour, background=colour)
+    frames_overview= tk.Label(page1, text=' # Frames:           ', height = 1, foreground= txtcolour, background=colour)
     frames_overview.grid(row = 4, column = 0, sticky = 'wn')
-    frames_overview_value = tkinter.Entry(page1,width = 3, foreground= 'white', bg = 'grey')
-    frames_overview_value.insert(tkinter.END, '3')
+    frames_overview_value = tk.Entry(page1,width = 3, foreground= 'white', bg = 'grey')
+    frames_overview_value.insert(tk.END, '3')
     frames_overview_value.grid(row = 4, column = 1, sticky = 'w')
 
-    laser_overview= tkinter.Label(page1, text=' Laser| power[%]:', height = 1, foreground= txtcolour, background=colour)
+    laser_overview= tk.Label(page1, text=' Laser| power[%]:', height = 1, foreground= txtcolour, background=colour)
     laser_overview.grid(row = 5, column = 0, sticky = 'wn')
-    laser_overview_entry = tkinter.Entry(page1,width = 8, foreground= 'white', bg = 'grey')
-    laser_overview_entry.insert(tkinter.END, '640')
+    laser_overview_entry = tk.Entry(page1,width = 8, foreground= 'white', bg = 'grey')
+    laser_overview_entry.insert(tk.END, '640')
     laser_overview_entry.grid(row = 5,column = 1, sticky = 'w') 
     
-    laser_overview_value = tkinter.Entry(page1, width = 8, foreground= 'white', bg = 'grey')
-    laser_overview_value.insert(tkinter.END, '5')
+    laser_overview_value = tk.Entry(page1, width = 8, foreground= 'white', bg = 'grey')
+    laser_overview_value.insert(tk.END, '5')
     laser_overview_value.grid(row = 5, column = 2, sticky = 'w')
     
 #########
 ### ROI_select 
 
     
-    laservalue= tkinter.Label(page3, text=' value:', height = 1, foreground= txtcolour, background=colour)
+    laservalue= tk.Label(page3, text=' value:', height = 1, foreground= txtcolour, background=colour)
     laservalue.grid(row = 0, column = 2, sticky = 'w')
-    laser_value_01 = tkinter.Entry(page3,width = 8)
-    laser_value_01.insert(tkinter.END, '50')
+    laser_value_01 = tk.Entry(page3,width = 8)
+    laser_value_01.insert(tk.END, '50')
     laser_value_01.grid(row = 0, column = 3, sticky = 'w')
     
-    laser_STED= tkinter.Label(page3, text=' STED-Laser:', height = 1, foreground= txtcolour, background=colour)
+    laser_STED= tk.Label(page3, text=' STED-Laser:', height = 1, foreground= txtcolour, background=colour)
     laser_STED.grid(row = 1, column = 0, sticky = 'w')
-    laser_STED_01 = tkinter.Entry(page3,width = 8)
-    laser_STED_01.insert(tkinter.END, '775')
+    laser_STED_01 = tk.Entry(page3,width = 8)
+    laser_STED_01.insert(tk.END, '775')
     laser_STED_01.grid(row = 1, column = 1, sticky = 'w')
     
-    laser_STEDvalue= tkinter.Label(page3, text=' value:', height = 1, foreground= txtcolour, background=colour)
+    laser_STEDvalue= tk.Label(page3, text=' value:', height = 1, foreground= txtcolour, background=colour)
     laser_STEDvalue.grid(row = 1, column = 2)
-    laser_STEDvalue_01 = tkinter.Entry(page3,width = 20)
-    laser_STEDvalue_01.insert(tkinter.END, '50, 50, 20,32')
+    laser_STEDvalue_01 = tk.Entry(page3,width = 20)
+    laser_STEDvalue_01.insert(tk.END, '50, 50, 20,32')
     laser_STEDvalue_01.grid(row = 1, column = 3)
     
-    dwell= tkinter.Label(frame_5, text=' Dwelltime [us]:', height = 1 , foreground= txtcolour, background=colour)
+    dwell= tk.Label(frame_5, text=' Dwelltime [us]:', height = 1 , foreground= txtcolour, background=colour)
     dwell.grid(row = 0, column = 0 , sticky = 'wn')
-    dwell_01 = tkinter.Entry(frame_5,width = 3 )
-    dwell_01.insert(tkinter.END, '5')
+    dwell_01 = tk.Entry(frame_5,width = 3 )
+    dwell_01.insert(tk.END, '5')
     dwell_01.grid(row = 0, column = 1, sticky = 'w')
     
-    pxsize= tkinter.Label(frame_5, text=' Pixelsize [nm]:', height = 1,foreground= txtcolour, background=colour)
+    pxsize= tk.Label(frame_5, text=' Pixelsize [nm]:', height = 1,foreground= txtcolour, background=colour)
     pxsize.grid(row = 1, column = 0, sticky = 'wn')
-    pxsize_01 = tkinter.ENTRY(frame_5, width = 3)
-    pxsize_01.insert(tkinter.END, '10')
+    pxsize_01 = tk.Entry(frame_5, width = 3)
+    pxsize_01.insert(tk.END, '10')
     pxsize_01.grid(row = 1, column = 1, sticky = 'w')
     
-    ROIsize= tkinter.Label(frame_5, text=' ROIsize [um]:', height = 1,foreground= txtcolour, background=colour)
+    ROIsize= tk.Label(frame_5, text=' ROIsize [um]:', height = 1,foreground= txtcolour, background=colour)
     ROIsize.grid(row = 2, column = 0, sticky = 'wn')
-    ROIsize_01 = tkinter.ENTRY(frame_5,width = 3)
-    ROIsize_01.insert(tkinter.END, '1')
+    ROIsize_01 = tk.Entry(frame_5,width = 3)
+    ROIsize_01.insert(tk.END, '1')
     ROIsize_01.grid(row = 2, column = 1, sticky = 'w')
     
-    frames= tkinter.Label(frame_5, text=' # Frames:           ', height = 1, foreground= txtcolour, background=colour)
+    frames= tk.Label(frame_5, text=' # Frames:           ', height = 1, foreground= txtcolour, background=colour)
     frames.grid(row = 3, column = 0, sticky = 'wn')
-    frames_01 = tkinter.ENTRY(frame_5,width = 3)
-    frames_01.insert(tkinter.END, '61')
+    frames_01 = tk.Entry(frame_5,width = 3)
+    frames_01.insert(tk.END, '61')
     frames_01.grid(row = 3, column = 1, sticky = 'w')
     
     
-    MultiRUN= tkinter.Label(frame_8, text=' Focus search:', height = 1, foreground= txtcolour, background=colour)
+    MultiRUN= tk.Label(frame_8, text=' Focus search:', height = 1, foreground= txtcolour, background=colour)
     MultiRUN.grid(row = 0, column = 2, sticky = 'w')
-    MultiRUN_01 = tkinter.ENTRY(frame_8,width = 8)
-    MultiRUN_01.insert(tkinter.END, '3')
+    MultiRUN_01 = tk.Entry(frame_8,width = 8)
+    MultiRUN_01.insert(tk.END, '3')
     MultiRUN_01.grid(row = 0, column = 3, sticky = 'w')
     
-    MultiRUN_s= tkinter.Label(frame_8, text='', height = 1, foreground= txtcolour, background=colour)
+    MultiRUN_s= tk.Label(frame_8, text='', height = 1, foreground= txtcolour, background=colour)
     MultiRUN_s.grid(row = 0, column = 0, sticky = 'w')
     
-    Autofocus= tkinter.Label(frame_8, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
-    Autofocus.grid(row = 2, column = 2, sticky = tkinter.W)
-    var13 = tkinter.IntVar()
-    Autofocus_01 = tkinter.Checkbutton(frame_8,  variable = var13, background =colour)
-    Autofocus_01.grid(row=2, column = 3, sticky = tkinter.W)
+    Autofocus= tk.Label(frame_8, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
+    Autofocus.grid(row = 2, column = 2, sticky = tk.W)
+    var13 = tk.IntVar()
+    Autofocus_01 = tk.Checkbutton(frame_8,  variable = var13, background =colour)
+    Autofocus_01.grid(row=2, column = 3, sticky = tk.W)
     
-    QFS= tkinter.Label(page1, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
-    QFS.grid(row = 2, column = 2, sticky = tkinter.W)
-    var14 = tkinter.IntVar()
-    QFS_01 = tkinter.Checkbutton(page1,  variable = var14, background =colour)
-    QFS_01.grid(row=2, column = 3, sticky = tkinter.W)
+    QFS= tk.Label(page1, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
+    QFS.grid(row = 2, column = 2, sticky = tk.W)
+    var14 = tk.IntVar()
+    QFS_01 = tk.Checkbutton(page1,  variable = var14, background =colour)
+    QFS_01.grid(row=2, column = 3, sticky = tk.W)
     
-    Circle= tkinter.Label(frame_8, text=' Circle:', height = 1 ,foreground= txtcolour, background=colour)
-    Circle.grid(row = 3, column = 2, sticky = tkinter.W)
-    var15 = tkinter.IntVar(value=0)
-    Circle_01 = tkinter.Checkbutton(frame_8,  variable = var15, background =colour)
-    Circle_01.grid(row=3, column = 3, sticky = tkinter.W)
+    Circle= tk.Label(frame_8, text=' Circle:', height = 1 ,foreground= txtcolour, background=colour)
+    Circle.grid(row = 3, column = 2, sticky = tk.W)
+    var15 = tk.IntVar(value=0)
+    Circle_01 = tk.Checkbutton(frame_8,  variable = var15, background =colour)
+    Circle_01.grid(row=3, column = 3, sticky = tk.W)
 
     
     
-    L485= tkinter.Label(frame_6, text=' L485:', height = 1 ,foreground= txtcolour, background=colour)
-    L485.grid(row = 0, column = 0, sticky = tkinter.W)
-    var1 = tkinter.IntVar()
-    L485_01 = tkinter.Checkbutton(frame_6,  variable = var1, background =colour)
-    L485_01.grid(row=0, column = 1, sticky = tkinter.W)
+    L485= tk.Label(frame_6, text=' L485:', height = 1 ,foreground= txtcolour, background=colour)
+    L485.grid(row = 0, column = 0, sticky = tk.W)
+    var1 = tk.IntVar()
+    L485_01 = tk.Checkbutton(frame_6,  variable = var1, background =colour)
+    L485_01.grid(row=0, column = 1, sticky = tk.W)
     
-    L485_02= tkinter.Label(frame_6, text=' L485:', height = 1 ,foreground= txtcolour, background=colour)
-    L485_02.grid(row = 0, column = 0, sticky = tkinter.W)
-    var7 = tkinter.IntVar()
-    L485_02_ = tkinter.Checkbutton(frame_6,  variable = var7, background =colour)
-    L485_02_.grid(row=0, column = 2, sticky=tkinter.W)
+    L485_02= tk.Label(frame_6, text=' L485:', height = 1 ,foreground= txtcolour, background=colour)
+    L485_02.grid(row = 0, column = 0, sticky = tk.W)
+    var7 = tk.IntVar()
+    L485_02_ = tk.Checkbutton(frame_6,  variable = var7, background =colour)
+    L485_02_.grid(row=0, column = 2, sticky=tk.W)
     
-    L518= tkinter.Label(frame_6, text=' L518:', height = 1 ,foreground= txtcolour, background=colour)
+    L518= tk.Label(frame_6, text=' L518:', height = 1 ,foreground= txtcolour, background=colour)
     L518.grid(row = 1, column = 0, sticky = 'wn')
-    var2 = tkinter.IntVar()
-    L518_01 = tkinter.Checkbutton(frame_6,  variable = var2, background =colour)
-    L518_01.grid(row=1, column = 1, sticky=tkinter.W)
+    var2 = tk.IntVar()
+    L518_01 = tk.Checkbutton(frame_6,  variable = var2, background =colour)
+    L518_01.grid(row=1, column = 1, sticky=tk.W)
     
-    L518_02= tkinter.Label(frame_6, text=' L518:', height = 1,foreground= txtcolour, background=colour)
+    L518_02= tk.Label(frame_6, text=' L518:', height = 1,foreground= txtcolour, background=colour)
     L518_02.grid(row = 1, column = 0, sticky = 'wn')
-    var8 = tkinter.IntVar()
-    L518_02_ = tkinter.Checkbutton(frame_6,  variable = var8, background =colour)
-    L518_02_.grid(row=1, column = 2, sticky=tkinter.W)
+    var8 = tk.IntVar()
+    L518_02_ = tk.Checkbutton(frame_6,  variable = var8, background =colour)
+    L518_02_.grid(row=1, column = 2, sticky=tk.W)
     
-    L561= tkinter.Label(frame_6, text=' L561:', height = 1,foreground= txtcolour, background=colour)
+    L561= tk.Label(frame_6, text=' L561:', height = 1,foreground= txtcolour, background=colour)
     L561.grid(row = 2, column = 0, sticky = 'wn')
-    var3 = tkinter.IntVar()
-    L561_01 = tkinter.Checkbutton(frame_6,  variable = var3, background =colour)
-    L561_01.grid(row=2, column = 1, sticky=tkinter.W)
+    var3 = tk.IntVar()
+    L561_01 = tk.Checkbutton(frame_6,  variable = var3, background =colour)
+    L561_01.grid(row=2, column = 1, sticky=tk.W)
     
-    L561_02= tkinter.Label(frame_6, text=' L561:', height = 1,foreground= txtcolour, background=colour)
+    L561_02= tk.Label(frame_6, text=' L561:', height = 1,foreground= txtcolour, background=colour)
     L561_02.grid(row = 2, column = 0, sticky = 'wn')
-    var9 = tkinter.IntVar()
-    L561_02_ = tkinter.Checkbutton(frame_6,  variable = var9, background =colour)
-    L561_02_.grid(row=2, column = 2, sticky=tkinter.W)
+    var9 = tk.IntVar()
+    L561_02_ = tk.Checkbutton(frame_6,  variable = var9, background =colour)
+    L561_02_.grid(row=2, column = 2, sticky=tk.W)
     
-    L640= tkinter.Label(frame_6, text=' L640:', height = 1,foreground= txtcolour, background=colour)
+    L640= tk.Label(frame_6, text=' L640:', height = 1,foreground= txtcolour, background=colour)
     L640.grid(row = 3, column = 0, sticky = 'wn')
-    var4 = tkinter.IntVar()
-    L640_01 = tkinter.Checkbutton(frame_6, variable = var4, background =colour)
-    L640_01.grid(row=3, column = 1, sticky=tkinter.W)
+    var4 = tk.IntVar()
+    L640_01 = tk.Checkbutton(frame_6, variable = var4, background =colour)
+    L640_01.grid(row=3, column = 1, sticky=tk.W)
     
-    L640_02= tkinter.Label(frame_6, text=' L640:', height = 1,foreground= txtcolour, background=colour)
+    L640_02= tk.Label(frame_6, text=' L640:', height = 1,foreground= txtcolour, background=colour)
     L640_02.grid(row = 3, column = 0, sticky = 'wn')
-    var10 = tkinter.IntVar()
-    L640_02_ = tkinter.Checkbutton(frame_6,  variable = var10, background =colour)
+    var10 = tk.IntVar()
+    L640_02_ = tk.Checkbutton(frame_6,  variable = var10, background =colour)
     L640_02_.grid(row=3, column = 2, sticky = 'wn')
     
-    L595= tkinter.Label(frame_6, text=' L595:', height = 1,foreground= txtcolour, background=colour)
+    L595= tk.Label(frame_6, text=' L595:', height = 1,foreground= txtcolour, background=colour)
     L595.grid(row = 4, column = 0, sticky = 'wn')
-    var5 = tkinter.IntVar()
-    L595_01 = tkinter.Checkbutton(frame_6,  variable = var5, background =colour)
+    var5 = tk.IntVar()
+    L595_01 = tk.Checkbutton(frame_6,  variable = var5, background =colour)
     L595_01.grid(row=4, column = 1, sticky = 'wn')
     
-    L595_02= tkinter.Label(frame_6, text=' L595:', height = 1,foreground= txtcolour, background=colour)
+    L595_02= tk.Label(frame_6, text=' L595:', height = 1,foreground= txtcolour, background=colour)
     L595_02.grid(row = 4, column = 0, sticky = 'wn')
-    var11 = tkinter.IntVar()
-    L595_02_ = tkinter.Checkbutton(frame_6,  variable = var11, background =colour)
+    var11 = tk.IntVar()
+    L595_02_ = tk.Checkbutton(frame_6,  variable = var11, background =colour)
     L595_02_.grid(row=4, column = 2, sticky = 'wn')
     
-    L775= tkinter.Label(frame_6, text=' L775:', height = 1,foreground= txtcolour, background=colour)
+    L775= tk.Label(frame_6, text=' L775:', height = 1,foreground= txtcolour, background=colour)
     L775.grid(row = 5, column = 0, sticky = 'wn')
-    var6 = tkinter.IntVar()
-    L775_01 = tkinter.Checkbutton(frame_6, variable = var6, background =colour)
+    var6 = tk.IntVar()
+    L775_01 = tk.Checkbutton(frame_6, variable = var6, background =colour)
     L775_01.grid(row=5, column = 1, sticky = 'wn')
     
-    L775_02= tkinter.Label(frame_6, text=' L775:', height = 1,foreground= txtcolour, background=colour)
+    L775_02= tk.Label(frame_6, text=' L775:', height = 1,foreground= txtcolour, background=colour)
     L775_02.grid(row = 5, column = 0, sticky = 'wn')
-    var12 = tkinter.IntVar()
-    L775_02_ = tkinter.Checkbutton(frame_6,  variable = var12, background =colour)
+    var12 = tk.IntVar()
+    L775_02_ = tk.Checkbutton(frame_6,  variable = var12, background =colour)
     L775_02_.grid(row=5, column = 2, sticky = 'wn')
     
-    L485_value= tkinter.Label(frame_6, height = 1,foreground= txtcolour, background=colour)
+    L485_value= tk.Label(frame_6, height = 1,foreground= txtcolour, background=colour)
     L485_value.grid(row = 2, column = 0, sticky = 'wn')
-    L485_value_01 = tkinter.ENTRY(frame_6,width = 3)
-    L485_value_01.insert(tkinter.END, '0')
+    L485_value_01 = tk.Entry(frame_6,width = 3)
+    L485_value_01.insert(tk.END, '0')
     L485_value_01.grid(row = 0, column = 5, sticky = 'en')
     
-    L518_value= tkinter.Label(frame_6, height = 1,foreground= txtcolour, background=colour)
+    L518_value= tk.Label(frame_6, height = 1,foreground= txtcolour, background=colour)
     L518_value.grid(row = 1, column = 0, sticky = 'wn')
-    L518_value_01 = tkinter.ENTRY(frame_6,width = 3)
-    L518_value_01.insert(tkinter.END, '0')
+    L518_value_01 = tk.Entry(frame_6,width = 3)
+    L518_value_01.insert(tk.END, '0')
     L518_value_01.grid(row = 1, column = 5, sticky = 'en')
     
-    L561_value= tkinter.Label(frame_6, height = 1,foreground= txtcolour, background=colour)
+    L561_value= tk.Label(frame_6, height = 1,foreground= txtcolour, background=colour)
     L561_value.grid(row = 2, column = 0, sticky = 'wn')
-    L561_value_01 = tkinter.ENTRY(frame_6,width = 3)
-    L561_value_01.insert(tkinter.END, '50')
+    L561_value_01 = tk.Entry(frame_6,width = 3)
+    L561_value_01.insert(tk.END, '50')
     L561_value_01.grid(row = 2, column = 5, sticky = 'en')
     
-    L640_value= tkinter.Label(frame_6, height = 1,foreground= 'black', background=colour)
+    L640_value= tk.Label(frame_6, height = 1,foreground= 'black', background=colour)
     L640_value.grid(row = 3, column = 0, sticky = 'wn')
-    L640_value_01 = tkinter.ENTRY(frame_6,width = 3)
-    L640_value_01.insert(tkinter.END, '3')
+    L640_value_01 = tk.Entry(frame_6,width = 3)
+    L640_value_01.insert(tk.END, '3')
     L640_value_01.grid(row = 3, column = 5, sticky = 'en')
     
-    L595_value= tkinter.Label(frame_6, height = 1,foreground= 'black', background= colour)
+    L595_value= tk.Label(frame_6, height = 1,foreground= 'black', background= colour)
     L595_value.grid(row = 4, column = 0, sticky = 'wn')
-    L595_value_01 = tkinter.ENTRY(frame_6,width = 3)
-    L595_value_01.insert(tkinter.END, '0')
+    L595_value_01 = tk.Entry(frame_6,width = 3)
+    L595_value_01.insert(tk.END, '0')
     L595_value_01.grid(row = 4, column = 5, sticky = 'en')
     
-    L775_value= tkinter.Label(frame_6, height = 1,foreground= 'black', background=colour)
+    L775_value= tk.Label(frame_6, height = 1,foreground= 'black', background=colour)
     L775_value.grid(row = 5, column = 0, sticky = 'wn')
-    L775_value_01 = tkinter.ENTRY(frame_6,width = 3)
-    L775_value_01.insert(tkinter.END, '50')
+    L775_value_01 = tk.Entry(frame_6,width = 3)
+    L775_value_01.insert(tk.END, '50')
     L775_value_01.grid(row = 5, column = 5, sticky = 'en')
     
-    THRES_value= tkinter.Label(frame_6, height = 1,foreground= 'black', background=colour)
+    THRES_value= tk.Label(frame_6, height = 1,foreground= 'black', background=colour)
     THRES_value.grid(row = 6, column = 0, sticky = 'wn')
-    THRES_value_01 = tkinter.ENTRY(frame_6,width = 3)
-    THRES_value_01.insert(tkinter.END, '0')
+    THRES_value_01 = tk.Entry(frame_6,width = 3)
+    THRES_value_01.insert(tk.END, '0')
     THRES_value_01.grid(row = 6, column = 5, sticky = 'en')
     
     a=0
     
-    out = [frame_top, tkinter.Label, frame_top2, frame_top3, frame_top4, labtext_1, T, style, nb, page1, page2, page3, page4, frame_spacer_01,frame_5, frame_6, frame_7, frame_8, a, colour, foldername, pxsize_01,ROIsize_01, dwell_01, frames_01, var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15, L485_value_01,L518_value_01,L561_value_01, L640_value_01, L595_value_01, L775_value_01, MultiRUN_01, laser_overview_value, laser_overview_entry, frames_overview_value,ROIsize_overview_value, dwell_overview_value, pxsize_overview_value] 
+    out = [frame_top, tk.Label, frame_top2, frame_top3, frame_top4, labtext_1, T, style, nb, page1, page2, page3, page4, frame_spacer_01,frame_5, frame_6, frame_7, frame_8, a, colour, foldername, pxsize_01,ROIsize_01, dwell_01, frames_01, var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15, L485_value_01,L518_value_01,L561_value_01, L640_value_01, L595_value_01, L775_value_01, MultiRUN_01, laser_overview_value, laser_overview_entry, frames_overview_value,ROIsize_overview_value, dwell_overview_value, pxsize_overview_value] 
     return out    
