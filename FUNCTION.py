@@ -169,6 +169,8 @@ def find_circle(data, radius_thresh_min, radius_thresh_max, distance_thresh, pix
     return x_coordinate, y_coordinate, image, thresh, gray, shifted, radius_corr, result, image_orig
     
 def Connect(T):
+    #this business with a global a is bad.
+    #I'm not sure what will break if I remove it, but it should be removed
     global a
     a=0
     try:
@@ -179,10 +181,10 @@ def Connect(T):
         
     if a==0:
         print('connect')
-        T.insert(tk.END, 'Can connect to Imspector')
+        T.insert(tk.END, 'connection successful')
     else:
         print('disconnect')
-        T.insert(tk.END, 'Cannot connect to Imspector')
+        T.insert(tk.END, 'connection failed')
     return a
 
 
@@ -213,7 +215,9 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
 
     Streaming_HydraHarp= True # Type True or False for Streaming via HydraHarp
     modelinesteps= True      #Type True for linesteps
-    xyt_mode = 784#1296           #Type 785 for xyt mode  784
+    # for xyt mode  784
+    #for xyz_mode 528
+    xyt_mode = 784#1296           # for xyt mode  784
     
     
      #here the laser values are read in, but why the strange format
@@ -236,12 +240,11 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
         laser_activ = [False]*8 
         laser_activ[laservalue] = True
         LASER_ACT.append(laser_activ)
-#    this exception should never occur
-#    if not len(LASER_ACT) == 8:
-#        calc = 8-len(LASER_ACT)
-#        for i in range(calc):
-#            LASER_ACT.append([False]*8)
-#    print(LASER_ACT)
+    #this solves a bug where the length of the arraz should be 8x8
+    if not len(LASER_ACT) == 8:
+        calc = 8-len(LASER_ACT)
+        for i in range(calc):
+            LASER_ACT.append([False]*8)
     
     #this sets which linesteps are active
     linesteps = [False]*8
@@ -252,44 +255,39 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
         
     
     ############
-
-    #a is a global that is set to 0 if a connection can be established
-    # set to 1 otherwise.
-    #the connection is reset here anyway, so it seems like it only tests the connection
-#    if a==0:  #a is a global that is set to True if a connection can be established
     
     path = 'D:/current data/'
     im = specpy.Imspector()#re-get connection
-    c=im.create_measurement()
+    meas=im.create_measurement()
            
     # overview is called multiple times to identify spot locations for the next spot.
     if Multi == 1: 
         print('MULTIRUN')
-        c.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) # current stage position in x [m]
+        meas.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) # current stage position in x [m]
     else:
         print('non MULTIRUN')
 
     #a bunch of these steps are default and can be put into a helper function
-    setDefaultMeasurementSettings(c)
-    c.set_parameters('ExpControl/scan/range/mode',xyt_mode)
-    c.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
-    c.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
-    c.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
-    c.set_parameters('ExpControl/scan/range/x/len',roi_size)
-    c.set_parameters('ExpControl/scan/range/y/len',roi_size)
+    setDefaultMeasurementSettings(meas)
+    meas.set_parameters('ExpControl/scan/range/mode',xyt_mode)
+    meas.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
+    meas.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
+    meas.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
+    meas.set_parameters('ExpControl/scan/range/x/len',roi_size)
+    meas.set_parameters('ExpControl/scan/range/y/len',roi_size)
 
-    c.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
-    c.set_parameters('ExpControl/scan/range/t/res',number_frames)
+    meas.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
+    meas.set_parameters('ExpControl/scan/range/t/res',number_frames)
 
-    c.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
+    meas.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
 
-    c.set_parameters('ExpControl/gating/linesteps/laser_on',LASER_ACT)
+    meas.set_parameters('ExpControl/gating/linesteps/laser_on',LASER_ACT)
 
     #why only if laser steps = 1?
     if laser_steps == 1:
-        c.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
-        c.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[0])
-        c.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, True, True, True],[True, True, True, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
+        meas.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
+        meas.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[0])
+        meas.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, True, True, True],[True, True, True, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
         
     else: 
         for i in range(len(laser_overview)):
@@ -299,54 +297,53 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
             elif laser_overview[i]  == 561:laservalue = 3
             elif laser_overview[i]  == 640:laservalue = 4
             elif laser_overview[i]  == 775:laservalue = 5
-            c.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[i])
-        c.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
-        c.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, False, True, False],[False, True, False, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
+            meas.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[i])
+        meas.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
+        meas.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, False, True, False],[False, True, False, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
     
     #here the measurement is actually run
-    meas= im.active_measurement()
     im.run(meas)
-    
-    #time.sleep(1)
-    #here the data is read out of the image
-    stk_names = meas.stack_names()
-    stk0 = meas.stack(0)
-    stk1 = meas.stack(1)
-    stk2 = meas.stack(2)
-    stk3 = meas.stack(3)
-    pix_data0 = stk0.data()
-    pix_data1 = stk1.data()
-    pix_data2 = stk2.data()
-    pix_data3 = stk3.data()
 
-    pix_data = pix_data0
+    #here the data is read out of the image
+    #get data and sum over the axes t and z
+    xy_data = [np.sum(meas.stack(i).data(), axis = (0, 1)) for i in range(4)]
+    datashape = meas.stack(0).data().shape
+    
+    #this function is needed for the elif statement below. I am not sure
+    #what these statements do. If possible, this pix_data should be deleted
+    pix_data = meas.stack(0).data()
+
+    #safety declaration
     r1 = 0
     r2 = 0
-    print(pix_data0.shape)
-    #here some adding is done, but this multiplication factor x10 is dubious
-    if pix_data0.shape == (1,number_frames,np.round(px_num,0),np.round(px_num,0)):
-        r1 = (np.sum(pix_data0, axis=1)[0] + np.sum(pix_data2, axis=1)[0])*10
-        r2 = (np.sum(pix_data1, axis=1)[0] + np.sum(pix_data3, axis=1)[0])*10
-        io_green = Image.fromarray(r1)
-        io_red =   Image.fromarray(r2)
+    print('xy dimensions of overview image is (%i, %i)'% xy_data[0].shape)
+    #the data array should have format [time, z, y, x]
+    if datashape == (1,number_frames,np.round(px_num,0),np.round(px_num,0)):
+        r1 = xy_data[0] + xy_data[2] # green channels
+        r2 = xy_data[1] + xy_data[3] # red channels
+        io_green = r1
+        io_red =   r2
         pp.imshow(io_red)
 
         #this seems like it can go.
         if laser_steps == 1:
             data = io_red
+            print('I hit this weird exception that seems unneeded!')
         else:
             #data =  r2
             data = io_red
-
-    #this is capturing some bug where the data has funky dimensions
-    elif pix_data.shape == (1, px_num, px_num, 1):
-        io = Image.fromarray(pix_data[0,:,:,0]*10)
+            print('I hit this weird exception that seems unneeded!')
+    elif datashape == (1, px_num, px_num, 1):
+        #this is capturing some bug where the data has funky dimensions
+        io = pix_data[0,:,:,0]
         pp.imshow(io)
         data = io
+        print('funky data dimension found!')
     else:
-        io = Image.fromarray((np.mean(pix_data, axis=3)[0])*10) # create greyscale image object  
+        io = np.mean(pix_data, axis=3)[0] # create greyscale image object  
         pp.imshow(io)
         data = io
+        print('funky data dimension found!')
     #this else statement seems unneeded
 #    else:
 #        #these if statements too
@@ -360,24 +357,21 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
 #            r1 =1
 #            r2 = 2
 #            data = Image.open('{}{}'.format(path,'offline_image.tiff'))
-            
-
-
-    io_1 = np.array(data)
-    io = Image.fromarray(io_1 ) 
-    scale_01.config(to =np.max(io))    
+    scale_01.config(to =np.max(data))    
            
-    io.save('{}{}'.format(path,'Overview_image.tiff'), format = 'TIFF')#'D:/current data/','Overview_image.tiff'
+
     print(path) 
-    #renaming of Imspector as IMAGE BAD IDEA
-    photo = np.array(data)
-    photo = cm.hot(photo)
-    image = np.uint8(photo * 255)
+    #display overview image, see 
+    #https://stackoverflow.com/questions/10965417/how-to-convert-a-numpy-array-to-pil-image-applying-matplotlib-colormap
+    photo = cm.hot(data.astype(np.float)) # cm needs floats
+    photo = np.uint8(photo * 255)
     photo = Image.fromarray(photo)
-    photo = photo.resize((300, 300), Image.ANTIALIAS)
-    photo = ImageTk.PhotoImage(photo)
-    label = tk.Label(frame_top,image=photo)
-    label.image = photo
+    photo = photo.resize((400, 400), Image.ANTIALIAS)
+    photoTk = ImageTk.PhotoImage(photo)
+    photo.save('{}{}'.format(path,'Overview_image.tiff'), format = 'TIFF')#'D:/current data/','Overview_image.tiff'
+    label = tk.Label(frame_top, image=photoTk)
+    #this seems unnesecary, but for some reason it is needed
+    label.image = photoTk
     label.grid(row=0)
     T.delete('1.0', tk.END) 
     T.insert(tk.END, "Overview created") 
@@ -1425,7 +1419,7 @@ def layout(path, root):
     frame_top = tk.Frame(root1, width = 400, height = 400, bg = colour)
     frame_top.grid(row=1, column=1)
     label = tk.Label(frame_top,image=photo)
-    label.image = photo
+    label.image = photo # this seems double, but it is actually needed, why?
     label.grid(row=0)
     
     frame_top2 = tk.Frame(root1, width = 400, height = 300, bg = colour)
