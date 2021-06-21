@@ -40,6 +40,7 @@ from lmfit import Model
 import shutil
 import matplotlib.cm as cm
 import tkinter as tk
+import time
 
 #imports used by Findpeak module
 from sklearn.neighbors import NearestNeighbors
@@ -47,6 +48,7 @@ import math
 import scipy
 from astropy.stats import RipleysKEstimator
 from scipy.ndimage.filters import gaussian_filter
+
 
 def SSS(scale_03_value):
     Findpeak()
@@ -406,440 +408,449 @@ def setDefaultMeasurementSettings(meas):
     meas.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
     
 def Findpeak(self):
-    #function uses slightly different names, I don't want to invest right now
-    #in changing them all
-    path = self.dataout
-    roi_size = self.ROIsize
-    T = self.T
-    circle = self.circle.get()
-    foldername = self.foldername
-    pixelsize_global = self.pxsize_overview_value
-    # global x_new
-    # global y_new
-    # global R
-    # global scale_val
-    # global aa
-    # global number_peaks_new 
-    # global time_wait_Multirun
-    
-    # global x_transfer
-    # global y_transfer
-    # global CO
+    import random
+    self.roi_xs = np.array([random.random() *10 for i in range(10)])
+    self.roi_ys = np.array([random.random() *10 for i in range(10)])
 
-    threshold = self.scale_01.get()      # define the lower threshold value
-    print("threshold value is %.1f" % threshold)
-    R_min = self.scale_02.get()          # additional distance threshold
-    R_max = self.scale_03.get()
-    #exc_border_peaks = 1 # type 0 for activate for border peaks 
-    
-    # if data is Red, probably want to change
-    data = self.xy_data[1] + self.xy_data[2] 
-    #I guess this was a way to retrieve the data
 # =============================================================================
-#     if a==0:
-#         path = 'D:/current data/'
-#         data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+# def Findpeak(self):
+#     #function uses slightly different names, I don't want to invest right now
+#     #in changing them all
+#     path = self.dataout
+#     roi_size = self.ROIsize
+#     T = self.T
+#     circle = self.circle.get()
+#     foldername = self.foldername
+#     pixelsize_global = self.pxsize_overview_value
+#     # global x_new
+#     # global y_new
+#     # global R
+#     # global scale_val
+#     # global aa
+#     # global number_peaks_new 
+#     # global time_wait_Multirun
+#     
+#     # global x_transfer
+#     # global y_transfer
+#     # global CO
+# 
+#     threshold = self.scale_01.get()      # define the lower threshold value
+#     print("threshold value is %.1f" % threshold)
+#     R_min = self.scale_02.get()          # additional distance threshold
+#     R_max = self.scale_03.get()
+#     #exc_border_peaks = 1 # type 0 for activate for border peaks 
+#     
+#     # if data is Red, probably want to change
+#     data = self.xy_data[1] + self.xy_data[2] 
+#     #I guess this was a way to retrieve the data
+# # =============================================================================
+# #     if a==0:
+# #         path = 'D:/current data/'
+# #         data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+# #         
+# #     else:
+# #         if circle ==0:
+# #             path = path
+# #             data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+# #         elif circle == 1:
+# #             path = path
+# #             data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+# # =============================================================================
+# 
+#             
+#     #what does this do?
+#     #if self.circle ==0:   
+#     data_sz = data.size
+#     zz = np.zeros(data_sz)
+#     aa = self.ROIsize
+#     testfolder = os.path.join(path, self.foldername)
+#     #why is this needed?
+#     if os.path.exists(testfolder) == False:
+#         os.makedirs(testfolder)
+#         os.makedirs(os.path.join(path, 'test_images.tiff'))
+#         
+# ############################################
+# #Calculate parameters    
+# ############################################
+# 
+#     imarray = np.array(data)
+#     imarray_thres = np.where(imarray > threshold,  imarray, 0)
+# 
+#     array_size_x = imarray_thres.shape[1]
+#     
+#     v1_x = int(array_size_x/2)
+#     v1_y = int(array_size_x/2)
+#     
+#     ##############################################
+#     # Find peaks in images:   
+#     coordinates = peak_local_max(imarray_thres, min_distance= R_min, indices=True) #exclude_border=exc_border_peaks)
+#     y_coord = coordinates[:, 0]
+#     x_coord = coordinates[:, 1]
+#      
+#     if len(coordinates)<= 1:
+#         CO=1
+#         print('NearestNeighbors failed: coordinates is <= 1')
+#         x_transfer = []
+#         y_transfer = []
+#         np.savetxt('{}{}{}'.format(path,'x_transfer','.dat'), x_transfer)       
+#         np.savetxt('{}{}{}'.format(path,'y_transfer','.dat'), y_transfer) 
 #         
 #     else:
-#         if circle ==0:
-#             path = path
-#             data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
-#         elif circle == 1:
-#             path = path
-#             data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+#         CO= 0
+#         print('NearestNeighbors okay')
+#         nbrs = NearestNeighbors(n_neighbors=3, algorithm='ball_tree').fit(coordinates)
+#         distances, indices = nbrs.kneighbors(coordinates) 
+#             
+#         number_peaks = int(coordinates.size/ 2)
+#         t_x= np.zeros(number_peaks)
+#         t_y= np.zeros(number_peaks)
+#         R_new = np.zeros(number_peaks)
+#         
+#         for i in range(number_peaks):
+#             for ii in range(number_peaks):
+#                 R = math.sqrt((coordinates[i][0]-coordinates[ii][0])**2+(coordinates[i][1]-coordinates[ii][1])**2)
+#                 
+#                 if R < R_max and R > 0:#R_min:
+#                     #print ('peaks',i,ii,'x1_coord',coordinates[i][0],'y1_coord',coordinates[i][1],'x2_coord',coordinates[ii][0],'y2_coord',coordinates[ii][1],'Distance R',R,'below', R_min  )
+#                     #print (coordinates[i][0],coordinates[i][1])
+#                     t_y[i] = coordinates[i][0]
+#                     t_x[i] = coordinates[i][1]
+#                     R_new[i] = R
+#   
+#         R_new_thres = R_new[np.where(R_new>0)]
+#     
+#         ###################################
+#         # Libary import
+#             
+#         # Do you want to simulate a Poisson distribution of spots [own_data = 0] or use own data [own_data = 1]????
+#         own_data = 1
+#              
+#         ###############  Window parameters  ##########################################
+#         pixelsize= 1 #[nm]
+#         
+#         xMin=0
+#         xMax=data.size[0]; # pixelnumber in x
+#         yMin=0
+#         yMax=data.size[1]; # pixelnumber in y
+#          
+#         #Poisson process parameters simulation
+#         lambda0=5; #intensity (ie mean density) of the Poisson process
+#          
+#         ###############################################################################
+#         if own_data ==0:
+#             print('Poisson distribution of spots')
+#             #Simulate Poisson point process
+#             xDelta=xMax-xMin;yDelta=yMax-yMin; #rectangle dimensions
+#             areaTotal=xDelta*yDelta; #total area
+#             numbPoints = scipy.stats.poisson( lambda0*areaTotal ).rvs()#Poisson number of points
+#             x_Poisson = xDelta*scipy.stats.uniform.rvs(0,1,((numbPoints,1)))+xMin#x coordinates of Poisson points
+#             y_Poisson = yDelta*scipy.stats.uniform.rvs(0,1,((numbPoints,1)))+yMin#y coordinates of Poisson points
+#             xx = x_Poisson
+#             yy = y_Poisson
+#             
+#         else:
+#             print('Using real data for statistics')
+#             xDelta=xMax-xMin;yDelta=yMax-yMin; #rectangle dimensions
+#             areaTotal=xDelta*yDelta; #total area
+#                 
+#        
+#         z = coordinates
+#         #np.savetxt('C:/Users/buddeja/Desktop/test/z_GUI.txt', z, delimiter='\t')   # X is an array
+#         #print(z.shape)
+#         Kest = RipleysKEstimator(area=areaTotal, x_max=xMax, y_max=yMax, x_min=xMin, y_min=yMin)
+#         r = np.linspace(0, xMax, 1000)
+#         ###########################################################################
+#     
+#     
+#         f1 = pp.figure(figsize=(3,3), dpi=100, edgecolor='k',facecolor = 'r')
+#         LABELSIZE = 7
+#         a = f1.add_subplot(211)
+#         a.hist(distances[:,1], bins=20,color='blue', label='1st neighbor',alpha=0.2)
+#         a.hist(distances[:,2], bins=20,color='red', label='2nd neighbor',alpha=0.2)
+#         pp.xlabel('Nearst neighbor distance [a.u]', fontsize = LABELSIZE, fontweight='bold')
+#         pp.ylabel('counts', fontsize = LABELSIZE, fontweight='bold')
+#         a.xaxis.set_tick_params(labelsize=LABELSIZE)
+#         a.yaxis.set_tick_params(labelsize=LABELSIZE)
+#         pp.legend(fontsize = LABELSIZE)
+#     
+#         
+#         y = r*0
+#         b = f1.add_subplot(212)
+#         #b.plot(r*pixelsize, Kest(data=z, radii=r, mode='translation'), color='black',label=r'$K_{trans}$')
+#         b.plot(r*pixelsize, Kest.Hfunction(data=z, radii=r, mode='translation'), color='black',label=r'$K_{trans}$')
+#         b.plot(r*pixelsize, y, color='red', ls='--', label=r'$K_{zerosline}$')
+#         #b.plot(r*pixelsize, Kest.poisson(r), color='green', ls=':', label=r'$K_{pois}$')
+#         pp.xlabel('radius [a.u]', fontsize = LABELSIZE, fontweight='bold')
+#         pp.ylabel('H-function', fontsize = LABELSIZE, fontweight='bold')
+#         pp.text(5, 70, r'Clustering')
+#         pp.text(5, -90, r'Dispersion')
+#         #pp.text(500, 70, '{}{}'.format('\u03C1=',x_pixelsize))
+#         b.set_xlim([0,999])
+#         b.set_ylim([-100,100])
+#         b.xaxis.set_tick_params(labelsize=LABELSIZE)
+#         b.yaxis.set_tick_params(labelsize=LABELSIZE)
+#         pp.legend(fontsize = LABELSIZE)
+#     
+#         pp.subplots_adjust(bottom=0.12, right=0.98, left=0.2,  top=0.95, wspace= 0.5, hspace= 0.43)
+#         
+# 
+#      
+#     
+#         x_new = t_x[np.where(t_x > 0 )]        
+#         y_new = t_y[np.where(t_y > 0 )]
+#         
+#         s = np.zeros(number_peaks)
+#         x = np.zeros(number_peaks)
+#         y = np.zeros(number_peaks)
+#         
+#         for i in range(R_new_thres.size):
+#             if R_new_thres[i] not in s:
+#                 s[i]= R_new_thres[i]
+#                 x[i]= x_new[i]
+#                 y[i]= y_new[i]
+#             else:
+#                 s[i]= 0
+#                 x[i]= 0
+#                 y[i]= 0
+#                  
+#         s = s[np.where(s > 0 )] 
+#          
+#               
+#     
+#         x_new = x[np.where(x > 0 )]
+#         y_new = y[np.where(y > 0 )]
+#         
+#         x_transfer = x_new - v1_x 
+#         y_transfer = y_new - v1_y
+#         
+#         number_peaks_new = x_new.size
+#     
+#         ##########################################
+#         # printing and saving the results
+#         
+#         np.savetxt('{}{}{}'.format(path,'x_coord','.dat'), x_coord)      
+#         np.savetxt('{}{}{}'.format(path,'y_coord','.dat'), y_coord)   
+#         np.savetxt('{}{}{}'.format(path,'x_new','.dat'), x_new)         
+#         np.savetxt('{}{}{}'.format(path,'y_new','.dat'), y_new)
+#         np.savetxt('{}{}{}'.format(path,'x_transfer','.dat'), x_transfer)       
+#         np.savetxt('{}{}{}'.format(path,'y_transfer','.dat'), y_transfer) 
+#     
+# 
+#     
+#         for i in range(x_new.size):
+#             zz[int(y_new[i]),int(x_new[i])] = 1
+#     
+#         sigma_1 = 1
+#         sigma = [sigma_1, sigma_1]   
+#         y = gaussian_filter(zz, sigma, mode='constant')
+#         #yy= stats.threshold(y, threshmax=0, newval=255)
+#         yy = np.where(y > 0,  y, 255)
+#         #pp.imshow(yy, 'hot')
+#         print(np.max(yy))
+#         xxx = Image.fromarray(yy)#imarray_thres)
+#         resized = xxx.resize((300, 300), Image.ANTIALIAS)
+#         
+# 
+#         img = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+#         im = np.array(img)
+#         im = cm.hot(im)
+#         im = np.uint8(im * 255)
+#         t = Image.fromarray(im)
+#         A = t.convert("RGBA")
+#         
+#         im = yy
+#         im = cm.Greens(im)
+#         im = np.uint8(im * 255)
+#         t = Image.fromarray(im)
+#         B = t.convert("RGBA")
+#         C = Image.blend(A, B, alpha=.5)
+#         C = C.resize((300, 300), Image.ANTIALIAS)
+#         
+#         photo = ImageTk.PhotoImage(C)
+# 
+# 
+# #########################
+#      
+#         canvas = FigureCanvasTkAgg(f1, master = self.frame_topright)
+#         canvas.get_tk_widget().grid(row=0, column=0, rowspan=1)
+#         label = tk.Label(self.frame_topleft,image=photo)
+#         label.image = photo
+#         label.grid(row=0)
+#         
+# #        AREA_spots = 0.09
+# #        rho= number_peaks_new/((roi_size*1000000)*(roi_size*1000000))
+# #        Lbda= rho*AREA_spots
+# #        
+# #        TEST = np.zeros((4,4))
+# #        
+# #        
+# #        for i in range(4):
+# #            P= (Lbda**i)/math.factorial(i)*math.exp(- Lbda )
+# #            TEST[0,i]=i
+# #            TEST[1,i]=Lbda
+# #            TEST[2,i]=P
+# #            TEST[3,i]=i
+# #        
+# #        print('Prop. of Singlet-events:',np.around(100-(TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%')  
+#             
+#             
+#         
+#         
+# #        T.delete('1.0', END)  
+# #        T.insert(END,'{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}'.format('peaks_found:  ',number_peaks_new-1,'\n',
+# #                                                             '\n',
+# #                                                             'Surface-density [µm^(-2)]:',rho,'\n',
+# #                                                             'Area of spots [µm^(2)]:',AREA_spots,'\n',
+# #                                                             'Total Area [µm^(2)]:',((roi_size*1000000)*(roi_size*1000000)),'\n',
+# #                                                             'Prop. of Singlet-events: ',np.around((TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%','\n',
+# #                                                             'Prop. of Multi-events:   ',np.around(100-(TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%'))
+# 
+#         ######################################
+#         AREA_spots = 0.09
+#         rho= number_peaks_new/((roi_size*1000000)*(roi_size*1000000))
+#         Lbda= rho*AREA_spots
+#         TEST = np.zeros((4,4))
+#        
+#         for i in range(4):
+#             P= (Lbda**i)/math.factorial(i)*math.exp(- Lbda )
+#             TEST[0,i]=i
+#             TEST[1,i]=Lbda
+#             TEST[2,i]=P
+#             TEST[3,i]=i
+#            
+#         T.delete('1.0', tk.END)  
+#         T.insert(tk.END,'{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}'.format('peaks_found:  ',number_peaks_new,'\n',
+#                                                                  '\n',
+#                                                                  'Surface-density [µm^(-2)]:',rho,'\n',
+#                                                                  'Area of spots [µm^(2)]:',AREA_spots,'\n',
+#                                                                  'Total Area [µm^(2)]:',((roi_size*1000000)*(roi_size*1000000)),'\n',
+#                                                                  'Prop. of Singlet-events: ',np.around((TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%','\n',
+#                                                                  'Prop. of Multi-events:   ',np.around(100-(TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%'))
+#         #time_wait_Multirun = number_peaks_new
+#             
+# # =============================================================================
+# #     #this uses some pyramid mean shift filtering whatever it is
+# #     if circle ==1:
+# #         data_sz = data.size
+# #         zz = np.zeros(data_sz)
+# #         #aa = roi_size
+# #     
+# #         if os.path.exists('{}{}'.format(path,foldername)) == False:
+# #             os.makedirs('{}{}'.format(path,foldername))
+# #             os.makedirs('{}{}'.format(path, 'test_images.tiff'))
+# #             
+# #         imarray = np.array(data)
+# #         imarray_thres = imarray
+# #     
+# #         array_size_x = imarray_thres.shape[1]
+# #         
+# #         v1_x = int(array_size_x/2)
+# #         v1_y = int(array_size_x/2)
+# #         
+# #         x_coord, y_coord, image, thresh, gray, shifted, radius_corr, result, image_orig    = find_circle(data, R_min, R_max, threshold, pixelsize_global)
+# #              
+# #    
+# #         x_new = np.array(x_coord)
+# #         y_new = np.array(y_coord)
+# #             
+# #         x_transfer = x_new - v1_x 
+# #         y_transfer = y_new - v1_y
+# #             
+# #         number_peaks_new = x_new.size
+# #         
+# #             ##########################################
+# #             # printing and saving the results
+# #             
+# #         np.savetxt('{}{}{}'.format(path,'x_coord','.dat'), x_coord)      
+# #         np.savetxt('{}{}{}'.format(path,'y_coord','.dat'), y_coord)   
+# #         np.savetxt('{}{}{}'.format(path,'x_new','.dat'), x_new)         
+# #         np.savetxt('{}{}{}'.format(path,'y_new','.dat'), y_new)
+# #         np.savetxt('{}{}{}'.format(path,'x_transfer','.dat'), x_transfer)       
+# #         np.savetxt('{}{}{}'.format(path,'y_transfer','.dat'), y_transfer) 
+# #         
+# #     
+# #         
+# #         for i in range(x_new.size):
+# #             zz[int(y_new[i]),int(x_new[i])] = 1
+# #         
+# #         sigma_1 = 1
+# #         sigma = [sigma_1, sigma_1]   
+# #         y = gaussian_filter(zz, sigma, mode='constant')
+# #         yy = np.where(y > 0,  y, 255)
+# #         print(np.max(yy))
+# #         xxx = Image.fromarray(yy)#imarray_thres)
+# #         resized = xxx.resize((300, 300), Image.ANTIALIAS)
+# #             
+# #         img = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+# #         img = np.array(image_orig)
+# #         img = np.stack((img, img, img), axis = 2)   
+# #         img = np.sum(image, axis =2)
+# #         im = np.array(img)
+# #         im = cm.hot(im)
+# #         im = np.uint8(im * 255)
+# #         t = Image.fromarray(im)
+# #         A = t.convert("RGBA")
+# #             
+# #         im = yy
+# #         im = cm.Greens(im)
+# #         im = np.uint8(im * 255)
+# #         t = Image.fromarray(im)
+# #         B = t.convert("RGBA")
+# #         C = Image.blend(A, B, alpha=.5)
+# #         C = Image.fromarray(image)
+# #         C = C.resize((300, 300), Image.ANTIALIAS)
+# #             
+# #         photo = ImageTk.PhotoImage(C)
+# #         
+# #         def Gauss(x, a, x0, sigma):
+# #             return a * np.exp(-(x - x0)**2 / (2 * sigma**2))
+# # 
+# #         model = Model(Gauss)
+# #         params = model.make_params()
+# #         P = model.param_names
+# #         for i in range(len(P)):
+# #             params[P[i]].value= 1
+# #         
+# #         pixelsize_global = np.around(pixelsize_global*10**9,1)
+# #          
+# #         counts, bins =np.histogram(radius_corr, bins =20)
+# #         
+# #         x =[]
+# #         for i in range(len(bins)-1):
+# #             x.append(bins[i]+(bins[i+1]-bins[i])/2)
+# #         result  = model.fit(counts, params, x=x)
+# #         f1 = pp.figure(figsize=(3,3), dpi=100, edgecolor='k',facecolor = 'r')
+# #         LABELSIZE = 7
+# #         a = f1.add_subplot(211)
+# #         pp.bar(np.array(x)*pixelsize_global, counts, color ='black', label= 'raw', width = 0.8*pixelsize_global)
+# #         pp.plot(np.array(x)*pixelsize_global, result.best_fit, 'r-', label='{}{}'.format('Radius [nm]: ',np.around(pixelsize_global*result.values['x0'],0)))
+# #         
+# #         pp.xlim(R_min*pixelsize_global,R_max*pixelsize_global)
+# #         pp.xlabel('Radius [nm]', fontsize = LABELSIZE, fontweight='bold')
+# #         pp.ylabel('counts', fontsize = LABELSIZE, fontweight='bold')
+# #         a.xaxis.set_tick_params(labelsize=LABELSIZE)
+# #         a.yaxis.set_tick_params(labelsize=LABELSIZE)
+# #         pp.legend(fontsize = LABELSIZE)
+# #         print(pixelsize_global)
+# #         
+# #         canvas = FigureCanvasTkAgg(f1, master = self.frame_topright)  
+# #         canvas.get_tk_widget().grid(row=0, column=0, rowspan=1)          
+# #         label = tk.Label(self.frame_topleft,image=photo)
+# #         label.image = photo
+# #         label.grid(row=0)
+# # =============================================================================
+# 
+# 
+# #########################
+#            
+#         CO = 0
+#         #time_wait_Multirun = number_peaks_new
+#     #I think these things don't do anything, I will just keep them here for now
+#     #self.photoTk = photo # this was giving an error - I hope it is not needed
+#     self.number_peaks_new = number_peaks_new
+#     self.CO = CO
+#     return
 # =============================================================================
-
-            
-    #what does this do?
-    if self.circle ==0:   
-        data_sz = data.size
-        zz = np.zeros(data_sz)
-        aa = self.roi_size
-        testfolder = os.path.join(path, self.foldername)
-        #why is this needed?
-        if os.path.exists(testfolder) == False:
-            os.makedirs(testfolder)
-            os.makedirs(os.path.join(path, 'test_images.tiff'))
-            
-    ############################################
-    #Calculate parameters    
-    ############################################
-    
-        imarray = np.array(data)
-        imarray_thres = np.where(imarray > threshold,  imarray, 0)
-    
-        array_size_x = imarray_thres.shape[1]
-        
-        v1_x = int(array_size_x/2)
-        v1_y = int(array_size_x/2)
-        
-        ##############################################
-        # Find peaks in images:   
-        coordinates = peak_local_max(imarray_thres, min_distance= R_min, indices=True) #exclude_border=exc_border_peaks)
-        y_coord = coordinates[:, 0]
-        x_coord = coordinates[:, 1]
-         
-        if len(coordinates)<= 1:
-            CO=1
-            print('NearestNeighbors failed: coordinates is <= 1')
-            x_transfer = []
-            y_transfer = []
-            np.savetxt('{}{}{}'.format(path,'x_transfer','.dat'), x_transfer)       
-            np.savetxt('{}{}{}'.format(path,'y_transfer','.dat'), y_transfer) 
-            
-        else:
-            CO= 0
-            print('NearestNeighbors okay')
-            nbrs = NearestNeighbors(n_neighbors=3, algorithm='ball_tree').fit(coordinates)
-            distances, indices = nbrs.kneighbors(coordinates) 
-                
-            number_peaks = int(coordinates.size/ 2)
-            t_x= np.zeros(number_peaks)
-            t_y= np.zeros(number_peaks)
-            R_new = np.zeros(number_peaks)
-            
-            for i in range(number_peaks):
-                for ii in range(number_peaks):
-                    R = math.sqrt((coordinates[i][0]-coordinates[ii][0])**2+(coordinates[i][1]-coordinates[ii][1])**2)
-                    
-                    if R < R_max and R > 0:#R_min:
-                        #print ('peaks',i,ii,'x1_coord',coordinates[i][0],'y1_coord',coordinates[i][1],'x2_coord',coordinates[ii][0],'y2_coord',coordinates[ii][1],'Distance R',R,'below', R_min  )
-                        #print (coordinates[i][0],coordinates[i][1])
-                        t_y[i] = coordinates[i][0]
-                        t_x[i] = coordinates[i][1]
-                        R_new[i] = R
-      
-            R_new_thres = R_new[np.where(R_new>0)]
-        
-            ###################################
-            # Libary import
-                
-            # Do you want to simulate a Poisson distribution of spots [own_data = 0] or use own data [own_data = 1]????
-            own_data = 1
-                 
-            ###############  Window parameters  ##########################################
-            pixelsize= 1 #[nm]
-            
-            xMin=0
-            xMax=data.size[0]; # pixelnumber in x
-            yMin=0
-            yMax=data.size[1]; # pixelnumber in y
-             
-            #Poisson process parameters simulation
-            lambda0=5; #intensity (ie mean density) of the Poisson process
-             
-            ###############################################################################
-            if own_data ==0:
-                print('Poisson distribution of spots')
-                #Simulate Poisson point process
-                xDelta=xMax-xMin;yDelta=yMax-yMin; #rectangle dimensions
-                areaTotal=xDelta*yDelta; #total area
-                numbPoints = scipy.stats.poisson( lambda0*areaTotal ).rvs()#Poisson number of points
-                x_Poisson = xDelta*scipy.stats.uniform.rvs(0,1,((numbPoints,1)))+xMin#x coordinates of Poisson points
-                y_Poisson = yDelta*scipy.stats.uniform.rvs(0,1,((numbPoints,1)))+yMin#y coordinates of Poisson points
-                xx = x_Poisson
-                yy = y_Poisson
-                
-            else:
-                print('Using real data for statistics')
-                xDelta=xMax-xMin;yDelta=yMax-yMin; #rectangle dimensions
-                areaTotal=xDelta*yDelta; #total area
-                    
-           
-            z = coordinates
-            #np.savetxt('C:/Users/buddeja/Desktop/test/z_GUI.txt', z, delimiter='\t')   # X is an array
-            #print(z.shape)
-            Kest = RipleysKEstimator(area=areaTotal, x_max=xMax, y_max=yMax, x_min=xMin, y_min=yMin)
-            r = np.linspace(0, xMax, 1000)
-            ###########################################################################
-        
-        
-            f1 = pp.figure(figsize=(3,3), dpi=100, edgecolor='k',facecolor = 'r')
-            LABELSIZE = 7
-            a = f1.add_subplot(211)
-            a.hist(distances[:,1], bins=20,color='blue', label='1st neighbor',alpha=0.2)
-            a.hist(distances[:,2], bins=20,color='red', label='2nd neighbor',alpha=0.2)
-            pp.xlabel('Nearst neighbor distance [a.u]', fontsize = LABELSIZE, fontweight='bold')
-            pp.ylabel('counts', fontsize = LABELSIZE, fontweight='bold')
-            a.xaxis.set_tick_params(labelsize=LABELSIZE)
-            a.yaxis.set_tick_params(labelsize=LABELSIZE)
-            pp.legend(fontsize = LABELSIZE)
-        
-            
-            y = r*0
-            b = f1.add_subplot(212)
-            #b.plot(r*pixelsize, Kest(data=z, radii=r, mode='translation'), color='black',label=r'$K_{trans}$')
-            b.plot(r*pixelsize, Kest.Hfunction(data=z, radii=r, mode='translation'), color='black',label=r'$K_{trans}$')
-            b.plot(r*pixelsize, y, color='red', ls='--', label=r'$K_{zerosline}$')
-            #b.plot(r*pixelsize, Kest.poisson(r), color='green', ls=':', label=r'$K_{pois}$')
-            pp.xlabel('radius [a.u]', fontsize = LABELSIZE, fontweight='bold')
-            pp.ylabel('H-function', fontsize = LABELSIZE, fontweight='bold')
-            pp.text(5, 70, r'Clustering')
-            pp.text(5, -90, r'Dispersion')
-            #pp.text(500, 70, '{}{}'.format('\u03C1=',x_pixelsize))
-            b.set_xlim([0,999])
-            b.set_ylim([-100,100])
-            b.xaxis.set_tick_params(labelsize=LABELSIZE)
-            b.yaxis.set_tick_params(labelsize=LABELSIZE)
-            pp.legend(fontsize = LABELSIZE)
-        
-            pp.subplots_adjust(bottom=0.12, right=0.98, left=0.2,  top=0.95, wspace= 0.5, hspace= 0.43)
-            
-    
-         
-        
-            x_new = t_x[np.where(t_x > 0 )]        
-            y_new = t_y[np.where(t_y > 0 )]
-            
-            s = np.zeros(number_peaks)
-            x = np.zeros(number_peaks)
-            y = np.zeros(number_peaks)
-            
-            for i in range(R_new_thres.size):
-                if R_new_thres[i] not in s:
-                    s[i]= R_new_thres[i]
-                    x[i]= x_new[i]
-                    y[i]= y_new[i]
-                else:
-                    s[i]= 0
-                    x[i]= 0
-                    y[i]= 0
-                     
-            s = s[np.where(s > 0 )] 
-             
-                  
-        
-            x_new = x[np.where(x > 0 )]
-            y_new = y[np.where(y > 0 )]
-            
-            x_transfer = x_new - v1_x 
-            y_transfer = y_new - v1_y
-            
-            number_peaks_new = x_new.size
-        
-            ##########################################
-            # printing and saving the results
-            
-            np.savetxt('{}{}{}'.format(path,'x_coord','.dat'), x_coord)      
-            np.savetxt('{}{}{}'.format(path,'y_coord','.dat'), y_coord)   
-            np.savetxt('{}{}{}'.format(path,'x_new','.dat'), x_new)         
-            np.savetxt('{}{}{}'.format(path,'y_new','.dat'), y_new)
-            np.savetxt('{}{}{}'.format(path,'x_transfer','.dat'), x_transfer)       
-            np.savetxt('{}{}{}'.format(path,'y_transfer','.dat'), y_transfer) 
-        
-    
-        
-            for i in range(x_new.size):
-                zz[int(y_new[i]),int(x_new[i])] = 1
-        
-            sigma_1 = 1
-            sigma = [sigma_1, sigma_1]   
-            y = gaussian_filter(zz, sigma, mode='constant')
-            #yy= stats.threshold(y, threshmax=0, newval=255)
-            yy = np.where(y > 0,  y, 255)
-            #pp.imshow(yy, 'hot')
-            print(np.max(yy))
-            xxx = Image.fromarray(yy)#imarray_thres)
-            resized = xxx.resize((300, 300), Image.ANTIALIAS)
-            
-    
-            img = Image.open('{}{}'.format(path,'Overview_image.tiff'))
-            im = np.array(img)
-            im = cm.hot(im)
-            im = np.uint8(im * 255)
-            t = Image.fromarray(im)
-            A = t.convert("RGBA")
-            
-            im = yy
-            im = cm.Greens(im)
-            im = np.uint8(im * 255)
-            t = Image.fromarray(im)
-            B = t.convert("RGBA")
-            C = Image.blend(A, B, alpha=.5)
-            C = C.resize((300, 300), Image.ANTIALIAS)
-            
-            photo = ImageTk.PhotoImage(C)
-
-
-#########################
-         
-            canvas = FigureCanvasTkAgg(f1, master = self.frame_topright)
-            canvas.get_tk_widget().grid(row=0, column=0, rowspan=1)
-            label = tk.Label(self.frame_topleft,image=photo)
-            label.image = photo
-            label.grid(row=0)
-            
-    #        AREA_spots = 0.09
-    #        rho= number_peaks_new/((roi_size*1000000)*(roi_size*1000000))
-    #        Lbda= rho*AREA_spots
-    #        
-    #        TEST = np.zeros((4,4))
-    #        
-    #        
-    #        for i in range(4):
-    #            P= (Lbda**i)/math.factorial(i)*math.exp(- Lbda )
-    #            TEST[0,i]=i
-    #            TEST[1,i]=Lbda
-    #            TEST[2,i]=P
-    #            TEST[3,i]=i
-    #        
-    #        print('Prop. of Singlet-events:',np.around(100-(TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%')  
-                
-                
-            
-            
-    #        T.delete('1.0', END)  
-    #        T.insert(END,'{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}'.format('peaks_found:  ',number_peaks_new-1,'\n',
-    #                                                             '\n',
-    #                                                             'Surface-density [µm^(-2)]:',rho,'\n',
-    #                                                             'Area of spots [µm^(2)]:',AREA_spots,'\n',
-    #                                                             'Total Area [µm^(2)]:',((roi_size*1000000)*(roi_size*1000000)),'\n',
-    #                                                             'Prop. of Singlet-events: ',np.around((TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%','\n',
-    #                                                             'Prop. of Multi-events:   ',np.around(100-(TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%'))
-    
-            ######################################
-            AREA_spots = 0.09
-            rho= number_peaks_new/((roi_size*1000000)*(roi_size*1000000))
-            Lbda= rho*AREA_spots
-            TEST = np.zeros((4,4))
-           
-            for i in range(4):
-                P= (Lbda**i)/math.factorial(i)*math.exp(- Lbda )
-                TEST[0,i]=i
-                TEST[1,i]=Lbda
-                TEST[2,i]=P
-                TEST[3,i]=i
-               
-            T.delete('1.0', tk.END)  
-            T.insert(tk.END,'{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}'.format('peaks_found:  ',number_peaks_new,'\n',
-                                                                     '\n',
-                                                                     'Surface-density [µm^(-2)]:',rho,'\n',
-                                                                     'Area of spots [µm^(2)]:',AREA_spots,'\n',
-                                                                     'Total Area [µm^(2)]:',((roi_size*1000000)*(roi_size*1000000)),'\n',
-                                                                     'Prop. of Singlet-events: ',np.around((TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%','\n',
-                                                                     'Prop. of Multi-events:   ',np.around(100-(TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%'))
-            #time_wait_Multirun = number_peaks_new
-            
-    #this uses some pyramid mean shift filtering whatever it is
-    if circle ==1:
-        data_sz = data.size
-        zz = np.zeros(data_sz)
-        #aa = roi_size
-    
-        if os.path.exists('{}{}'.format(path,foldername)) == False:
-            os.makedirs('{}{}'.format(path,foldername))
-            os.makedirs('{}{}'.format(path, 'test_images.tiff'))
-            
-        imarray = np.array(data)
-        imarray_thres = imarray
-    
-        array_size_x = imarray_thres.shape[1]
-        
-        v1_x = int(array_size_x/2)
-        v1_y = int(array_size_x/2)
-        
-        x_coord, y_coord, image, thresh, gray, shifted, radius_corr, result, image_orig    = find_circle(data, R_min, R_max, threshold, pixelsize_global)
-             
-   
-        x_new = np.array(x_coord)
-        y_new = np.array(y_coord)
-            
-        x_transfer = x_new - v1_x 
-        y_transfer = y_new - v1_y
-            
-        number_peaks_new = x_new.size
-        
-            ##########################################
-            # printing and saving the results
-            
-        np.savetxt('{}{}{}'.format(path,'x_coord','.dat'), x_coord)      
-        np.savetxt('{}{}{}'.format(path,'y_coord','.dat'), y_coord)   
-        np.savetxt('{}{}{}'.format(path,'x_new','.dat'), x_new)         
-        np.savetxt('{}{}{}'.format(path,'y_new','.dat'), y_new)
-        np.savetxt('{}{}{}'.format(path,'x_transfer','.dat'), x_transfer)       
-        np.savetxt('{}{}{}'.format(path,'y_transfer','.dat'), y_transfer) 
-        
-    
-        
-        for i in range(x_new.size):
-            zz[int(y_new[i]),int(x_new[i])] = 1
-        
-        sigma_1 = 1
-        sigma = [sigma_1, sigma_1]   
-        y = gaussian_filter(zz, sigma, mode='constant')
-        yy = np.where(y > 0,  y, 255)
-        print(np.max(yy))
-        xxx = Image.fromarray(yy)#imarray_thres)
-        resized = xxx.resize((300, 300), Image.ANTIALIAS)
-            
-        img = Image.open('{}{}'.format(path,'Overview_image.tiff'))
-        img = np.array(image_orig)
-        img = np.stack((img, img, img), axis = 2)   
-        img = np.sum(image, axis =2)
-        im = np.array(img)
-        im = cm.hot(im)
-        im = np.uint8(im * 255)
-        t = Image.fromarray(im)
-        A = t.convert("RGBA")
-            
-        im = yy
-        im = cm.Greens(im)
-        im = np.uint8(im * 255)
-        t = Image.fromarray(im)
-        B = t.convert("RGBA")
-        C = Image.blend(A, B, alpha=.5)
-        C = Image.fromarray(image)
-        C = C.resize((300, 300), Image.ANTIALIAS)
-            
-        photo = ImageTk.PhotoImage(C)
-        
-        def Gauss(x, a, x0, sigma):
-            return a * np.exp(-(x - x0)**2 / (2 * sigma**2))
-
-        model = Model(Gauss)
-        params = model.make_params()
-        P = model.param_names
-        for i in range(len(P)):
-            params[P[i]].value= 1
-        
-        pixelsize_global = np.around(pixelsize_global*10**9,1)
-         
-        counts, bins =np.histogram(radius_corr, bins =20)
-        
-        x =[]
-        for i in range(len(bins)-1):
-            x.append(bins[i]+(bins[i+1]-bins[i])/2)
-        result  = model.fit(counts, params, x=x)
-        f1 = pp.figure(figsize=(3,3), dpi=100, edgecolor='k',facecolor = 'r')
-        LABELSIZE = 7
-        a = f1.add_subplot(211)
-        pp.bar(np.array(x)*pixelsize_global, counts, color ='black', label= 'raw', width = 0.8*pixelsize_global)
-        pp.plot(np.array(x)*pixelsize_global, result.best_fit, 'r-', label='{}{}'.format('Radius [nm]: ',np.around(pixelsize_global*result.values['x0'],0)))
-        
-        pp.xlim(R_min*pixelsize_global,R_max*pixelsize_global)
-        pp.xlabel('Radius [nm]', fontsize = LABELSIZE, fontweight='bold')
-        pp.ylabel('counts', fontsize = LABELSIZE, fontweight='bold')
-        a.xaxis.set_tick_params(labelsize=LABELSIZE)
-        a.yaxis.set_tick_params(labelsize=LABELSIZE)
-        pp.legend(fontsize = LABELSIZE)
-        print(pixelsize_global)
-        
-        canvas = FigureCanvasTkAgg(f1, master = self.frame_topright)  
-        canvas.get_tk_widget().grid(row=0, column=0, rowspan=1)          
-        label = tk.Label(self.frame_topleft,image=photo)
-        label.image = photo
-        label.grid(row=0)
-
-
-#########################
-           
-        CO = 0
-        #time_wait_Multirun = number_peaks_new
-    #I think these things don't do anything, I will just keep them here for now
-    #self.photoTk = photo # this was giving an error - I hope it is not needed
-    self.number_peaks_new = number_peaks_new
-    self.CO = CO
-    return
     
 
 def powerseries(laser_value_01, laser_STEDvalue_01,laser_01,laser_STED_01):
@@ -1051,47 +1062,58 @@ def pinholeseries(pinholevector, laser):
     
  
 
-def Run_meas(pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561, act640, act595, act775, act485_02, act518_02, act561_02, act640_02, act595_02, act775_02, act_Autofocus, act_QFS,L485_value_01,L518_value_01,L561_value_01, L640_value_01, L595_value_01, L775_value_01, T, mm, Pos, pixelsize_global):
+def Run_meas(self):
+    #pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561, 
+    #act640, act595, act775, act485_02, act518_02, act561_02, act640_02, 
+    #act595_02, act775_02, act_Autofocus, act_QFS,L485_value_01,L518_value_01,
+    #L561_value_01, L640_value_01, L595_value_01, L775_value_01, T, mm, Pos, pixelsize_global):
+    #this function needs x_roi_size and y_roi_size, which where global before
+    #aliasses for class variables are given here, it is cleaner to implement 
+    #them everywhere, but I don't want to do that now.
+    Multi = self.multirun
+    Pos = self.y_coarse_offset
+    pixelsize = self.pxsize.get()
+    T = self.T
+    pixelsize_global = self.pxsize_overview_value.get()
     
-    Multi = mm
-    Pos = Pos
+    #consider moving below part to separate function
     z_position =  5e-08 #float(pixelsize)*1e-09         # in meter
     x_pixelsize = float(pixelsize)*1e-09        # in meter
     y_pixelsize = float(pixelsize)*1e-09        # in meter
     z_pixelsize = float(pixelsize)*1e-09        # in meter
-    roi_size =    float(Roisize)*1e-06            # in meter 
-    Dwelltime= float(dwelltime)*1e-06         # in seconds  
+    roi_size =    float(self.ROIsize.get())*1e-06            # in meter 
+    Dwelltime= float(self.dwelltime.get())*1e-06         # in seconds  
            
-    LP485 = L485_value_01.get()
-    LP518 = L518_value_01.get()
-    LP561 = L561_value_01.get()
-    LP640 = L640_value_01.get()
-    LP595 = L595_value_01.get()
-    LP775 = L775_value_01.get()
+    LP485 = self.L485_value.get()
+    LP518 = self.L518_value.get()
+    LP561 = self.L561_value.get()
+    LP640 = self.L640_value.get()
+    LP595 = self.L595_value.get()
+    LP775 = self.L775_value.get()
                 
     Streaming_HydraHarp= True # Type True or False for Streaming via HydraHarp 
     modelinesteps= True      #Type True for linesteps
     number_linesteps = 2     #Type the number of linesteps
     xyt_mode = 784           #Type 785 for xyt mode
     
-    number_frames = float(frame_number)     #Type number of frames t in xyt mode
+    number_frames = float(self.NoFrames.get())     #Type number of frames t in xyt mode
     #time_wait = math.ceil((roi_size/x_pixelsize) * (roi_size/y_pixelsize)* number_frames* Dwelltime) + 1
     #measurement time consists of line scan rate + flyback time + buffer
     time_wait = 1
                     
-    Activate485 = bool(act485)                    
-    Activate518 = bool(act518)   
-    Activate561 = bool(act561)   
-    Activate640 = bool(act640)   
-    Activate595 = bool(act595)   
-    Activate775 = bool(act775)   
+    Activate485 = bool(self.L485_1)                    
+    Activate518 = bool(self.L518_1)   
+    Activate561 = bool(self.L561_1)   
+    Activate640 = bool(self.L640_1)   
+    Activate595 = bool(self.L595_1)   
+    Activate775 = bool(self.L775_1)   
     
-    Activate485_02 = bool(act485_02)                    
-    Activate518_02 = bool(act518_02)   
-    Activate561_02 = bool(act561_02)   
-    Activate640_02 = bool(act640_02)   
-    Activate595_02 = bool(act595_02)   
-    Activate775_02 = bool(act775_02) 
+    Activate485_02 = bool(self.L485_2)                    
+    Activate518_02 = bool(self.L518_2)   
+    Activate561_02 = bool(self.L561_2)   
+    Activate640_02 = bool(self.L561_2)   
+    Activate595_02 = bool(self.L595_2)   
+    Activate775_02 = bool(self.L775_2) 
     #Activate_Autofocus= bool(act_Autofocus)
         
         
@@ -1122,9 +1144,10 @@ def Run_meas(pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561
     detector4= True
             
        ####################################################################################
-            
-    T.delete('1.0', END) 
-    T.insert(END, 'L485',L485_value_01.get())
+     
+    # seems like debree       
+    # T.delete('1.0', tk.END) 
+    # T.insert(tk.END, 'L485',self.L485_value.get())
             
         
     linesteps = [False, False, False, False, False, False, False, False]
@@ -1132,134 +1155,139 @@ def Run_meas(pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561
         linesteps[i] = True
             
         #M_obj= im.measurement(im.measurement_names()[0])
-    if a==0:
-        import math
-        import time
+    #if a==0:
+    #import math
+    #import time
+    
+    im = specpy.Imspector() 
+    d = im.active_measurement()
+    M_obj= im.measurement(d.name())
+             
+#    if Activate_Autofocus == True: #Activate_Autofocus
+#        M_obj.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', False)
+#        time.sleep(2) 
+#        M_obj.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
         
-        im = specpy.Imspector() 
+     #another global variable  section, it may trigger when no peaks have been found           
+# =============================================================================
+#     if CO ==1 :
+#         print('failed')
+#         save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', 0)
+#         os.makedirs(save_path)  
+#         (im.measurement(im.measurement_names()[1])).save_as('{}{}{}{}{}'.format(save_path,'/','Overview_', Pos,'.msr'))
+#         im.close(im.measurement(im.measurement_names()[1]))
+#     else:
+# =============================================================================
+    x_global_offset = M_obj.parameters('ExpControl/scan/range/x/off')
+    y_global_offset = M_obj.parameters('ExpControl/scan/range/y/off')
+    x_roi_new = self.roi_xs # np.loadtxt('D:/current data/x_transfer.dat') - x_global_offset
+    y_roi_new = self.roi_ys # np.loadtxt('D:/current data/y_transfer.dat') - y_global_offset
+    
+    for i in range(1,x_roi_new.size):
+        x_position = x_roi_new[i]
+        y_position = y_roi_new[i]
+           
         d = im.active_measurement()
-        M_obj= im.measurement(d.name())
-                 
-    #    if Activate_Autofocus == True: #Activate_Autofocus
-    #        M_obj.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', False)
-    #        time.sleep(2) 
-    #        M_obj.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
-            
-                        
-        if CO ==1 :
-            print('failed')
-            save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', 0)
+        M_obj.clone(d.active_configuration())
+        M_obj.activate(M_obj.configuration(i))          
+        c = M_obj.configuration(i)
+        
+        c.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
+        c.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
+        c.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
+        c.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize_global )#+ ROI_offset)
+        c.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize_global )#+ ROI_offset)
+        c.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
+        c.set_parameters('ExpControl/scan/range/x/len',roi_size)
+        c.set_parameters('ExpControl/scan/range/y/len',roi_size)
+        c.set_parameters('ExpControl/scan/range/z/len',roi_size)
+        c.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
+        c.set_parameters('HydraHarp/data/streaming/enable', Streaming_HydraHarp)
+        c.set_parameters('HydraHarp/is_active', Streaming_HydraHarp)
+        c.set_parameters('ExpControl/gating/tcspc/channels/0/mode', Ch1_mode)
+        c.set_parameters('ExpControl/gating/tcspc/channels/0/stream', Ch1_stream)
+        c.set_parameters('ExpControl/gating/tcspc/channels/1/mode', Ch2_mode)
+        c.set_parameters('ExpControl/gating/tcspc/channels/1/stream', Ch2_stream)
+        c.set_parameters('ExpControl/gating/tcspc/channels/2/mode', Ch3_mode)
+        c.set_parameters('ExpControl/gating/tcspc/channels/2/stream', Ch3_stream)
+        c.set_parameters('ExpControl/gating/tcspc/channels/3/mode', Ch4_mode)
+        c.set_parameters('ExpControl/gating/tcspc/channels/3/stream', Ch4_stream)
+        c.set_parameters('ExpControl/gating/linesteps/on', modelinesteps)
+        c.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
+        c.set_parameters('ExpControl/gating/linesteps/step_values',[1,1,0,0,0,0,0,0])
+        c.set_parameters('ExpControl/scan/range/mode',xyt_mode)
+        c.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', float(LP485))
+        c.set_parameters('ExpControl/lasers/power_calibrated/2/value/calibrated', float(LP518))
+        c.set_parameters('ExpControl/lasers/power_calibrated/3/value/calibrated', float(LP561))
+        c.set_parameters('ExpControl/lasers/power_calibrated/4/value/calibrated', float(LP640))
+        c.set_parameters('ExpControl/lasers/power_calibrated/5/value/calibrated', float(LP775))
+        c.set_parameters('ExpControl/gating/pulses/pulse_chan/delay',[0.0, 0.0, 0.0, 0.0])
+        c.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
+        c.set_parameters('ExpControl/gating/linesteps/laser_on',[[Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
+         [Activate485_02, Activate518_02, Activate595_02, Activate561_02, Activate640_02, Activate775_02, False, False],
+         [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
+         [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
+         [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
+         [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
+         [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
+         [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False]])
+        c.set_parameters('ExpControl/scan/range/t/res',number_frames)
+        c.set_parameters('ExpControl/gating/linesteps/chans_enabled',[detector1,detector2,detector3,detector4])
+        c.set_parameters('ExpControl/scan/detsel/detsel',['APD1', 'APD2', 'APD3', 'APD4'])
+        c.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, True, True, True],
+         [True, True, True, True],
+         [False, False, False, False],
+         [False, False, False, False],
+         [False, False, False, False],
+         [False, False, False, False],
+         [False, False, False, False],
+         [False, False, False, False]])
+    
+
+          #### # c.set_parameters('{}{}{}'.format('ExpControl/lasers/pinholeseries'), ii)
+           
+
+        im.run(M_obj)
+        time.sleep(time_wait) 
+                
+    #        
+        if Multi ==0:
+            save_path = '{}{}{}'.format('D:/current data/','Overview','.msr')
+            (im.measurement(im.measurement_names()[0])).save_as(save_path)
+            im.close(im.measurement(im.measurement_names()[0])) 
+            files = os.listdir('D:/current data/')
+            files_txt = [i for i in files if i.endswith('.ptu')]
+            n_files_txt = len(files_txt)
+                
+            for ii in range(n_files_txt):
+                new_path = '{}{}{}{}'.format('D:/current data/testfolder/ptu_files/','measurement_',ii,'.ptu')
+                os.rename('{}{}'.format('D:/current data/',files_txt[ii]), '{}{}{}{}{}'.format('D:/current data/','Overview_','spot_', ii, '.ptu'))
+                
+        else:
+            save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', self.number_peaks_new-1)
             os.makedirs(save_path)  
             (im.measurement(im.measurement_names()[1])).save_as('{}{}{}{}{}'.format(save_path,'/','Overview_', Pos,'.msr'))
-            im.close(im.measurement(im.measurement_names()[1]))
-        else:
-            x_global_offset = M_obj.parameters('ExpControl/scan/range/x/off')
-            y_global_offset = M_obj.parameters('ExpControl/scan/range/y/off')
-            x_roi_new = np.loadtxt('D:/current data/x_transfer.dat') - x_global_offset
-            y_roi_new = np.loadtxt('D:/current data/y_transfer.dat') - y_global_offset
-            for i in range(1,x_roi_new.size):
-                x_position = x_roi_new[i]
-                y_position = y_roi_new[i]
-                   
-                d = im.active_measurement()
-                M_obj.clone(d.active_configuration())
-                M_obj.activate(M_obj.configuration(i))          
-                c = M_obj.configuration(i)
-                
-                c.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
-                c.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
-                c.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
-                c.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize_global )#+ ROI_offset)
-                c.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize_global )#+ ROI_offset)
-                c.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
-                c.set_parameters('ExpControl/scan/range/x/len',roi_size)
-                c.set_parameters('ExpControl/scan/range/y/len',roi_size)
-                c.set_parameters('ExpControl/scan/range/z/len',roi_size)
-                c.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
-                c.set_parameters('HydraHarp/data/streaming/enable', Streaming_HydraHarp)
-                c.set_parameters('HydraHarp/is_active', Streaming_HydraHarp)
-                c.set_parameters('ExpControl/gating/tcspc/channels/0/mode', Ch1_mode)
-                c.set_parameters('ExpControl/gating/tcspc/channels/0/stream', Ch1_stream)
-                c.set_parameters('ExpControl/gating/tcspc/channels/1/mode', Ch2_mode)
-                c.set_parameters('ExpControl/gating/tcspc/channels/1/stream', Ch2_stream)
-                c.set_parameters('ExpControl/gating/tcspc/channels/2/mode', Ch3_mode)
-                c.set_parameters('ExpControl/gating/tcspc/channels/2/stream', Ch3_stream)
-                c.set_parameters('ExpControl/gating/tcspc/channels/3/mode', Ch4_mode)
-                c.set_parameters('ExpControl/gating/tcspc/channels/3/stream', Ch4_stream)
-                c.set_parameters('ExpControl/gating/linesteps/on', modelinesteps)
-                c.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
-                c.set_parameters('ExpControl/gating/linesteps/step_values',[1,1,0,0,0,0,0,0])
-                c.set_parameters('ExpControl/scan/range/mode',xyt_mode)
-                c.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', float(LP485))
-                c.set_parameters('ExpControl/lasers/power_calibrated/2/value/calibrated', float(LP518))
-                c.set_parameters('ExpControl/lasers/power_calibrated/3/value/calibrated', float(LP561))
-                c.set_parameters('ExpControl/lasers/power_calibrated/4/value/calibrated', float(LP640))
-                c.set_parameters('ExpControl/lasers/power_calibrated/5/value/calibrated', float(LP775))
-                c.set_parameters('ExpControl/gating/pulses/pulse_chan/delay',[0.0, 0.0, 0.0, 0.0])
-                c.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
-                c.set_parameters('ExpControl/gating/linesteps/laser_on',[[Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
-                 [Activate485_02, Activate518_02, Activate595_02, Activate561_02, Activate640_02, Activate775_02, False, False],
-                 [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
-                 [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
-                 [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
-                 [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
-                 [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
-                 [Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False]])
-                c.set_parameters('ExpControl/scan/range/t/res',number_frames)
-                c.set_parameters('ExpControl/gating/linesteps/chans_enabled',[detector1,detector2,detector3,detector4])
-                c.set_parameters('ExpControl/scan/detsel/detsel',['APD1', 'APD2', 'APD3', 'APD4'])
-                c.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, True, True, True],
-                 [True, True, True, True],
-                 [False, False, False, False],
-                 [False, False, False, False],
-                 [False, False, False, False],
-                 [False, False, False, False],
-                 [False, False, False, False],
-                 [False, False, False, False]])
+             
+            files = os.listdir('D:/current data/')
+            files_ptu = [i for i in files if i.endswith('.ptu')]
+            files_dat = [i for i in files if i.endswith('.dat')]
             
-        
-                  #### # c.set_parameters('{}{}{}'.format('ExpControl/lasers/pinholeseries'), ii)
-                   
-        
-                im.run(M_obj)
-                time.sleep(time_wait) 
-                    
-        #        
-            if Multi ==0:
-                save_path = '{}{}{}'.format('D:/current data/','Overview','.msr')
-                (im.measurement(im.measurement_names()[0])).save_as(save_path)
-                im.close(im.measurement(im.measurement_names()[0])) 
-                files = os.listdir('D:/current data/')
-                files_txt = [i for i in files if i.endswith('.ptu')]
-                n_files_txt = len(files_txt)
-                    
-                for ii in range(n_files_txt):
-                    new_path = '{}{}{}{}'.format('D:/current data/testfolder/ptu_files/','measurement_',ii,'.ptu')
-                    os.rename('{}{}'.format('D:/current data/',files_txt[ii]), '{}{}{}{}{}'.format('D:/current data/','Overview_','spot_', ii, '.ptu'))
-                    
-            else:
-                save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', self.number_peaks_new-1)
-                os.makedirs(save_path)  
-                (im.measurement(im.measurement_names()[1])).save_as('{}{}{}{}{}'.format(save_path,'/','Overview_', Pos,'.msr'))
-                 
-                files = os.listdir('D:/current data/')
-                files_ptu = [i for i in files if i.endswith('.ptu')]
-                files_dat = [i for i in files if i.endswith('.dat')]
+            n_files_ptu = len(files_ptu)
+            n_files_dat = len(files_dat)
                 
-                n_files_ptu = len(files_ptu)
-                n_files_dat = len(files_dat)
-                    
-                for ii in range(n_files_ptu):
-                    os.rename('{}{}'.format('D:/current data/',files_ptu[ii]), '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', ii, '.ptu'))
-                
-                for ii in range(n_files_dat):
-                    os.rename('{}{}'.format('D:/current data/',files_dat[ii]), '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', files_dat[ii],'.dat'))
+            for ii in range(n_files_ptu):
+                os.rename('{}{}'.format('D:/current data/',files_ptu[ii]), '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', ii, '.ptu'))
             
-    else:
-        print('Multirun not available! No connection')
-        save_path = 'D:/current data/'
-        print(save_path)
+            for ii in range(n_files_dat):
+                os.rename('{}{}'.format('D:/current data/',files_dat[ii]), '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', files_dat[ii],'.dat'))
             
+# =============================================================================
+#     else:
+#         print('Multirun not available! No connection')
+#         save_path = 'D:/current data/'
+#         print(save_path)
+#             
+# =============================================================================
     return save_path
        
 def SAVING(path,a):
@@ -1537,7 +1565,7 @@ def layout(self):
     ROIsize_overview= tk.Label(page1, text=' ROIsize [um]:', height = 1,foreground= txtcolour, background=colour)
     ROIsize_overview.grid(row = 3, column = 0, sticky = 'wn')
     ROIsize_overview_value = tk.Entry(page1,width = 3, foreground= 'white', bg = 'grey')
-    ROIsize_overview_value.insert(tk.END, '70')
+    ROIsize_overview_value.insert(tk.END, '10')
     ROIsize_overview_value.grid(row = 3, column = 1, sticky = 'w')
     
     frames_overview= tk.Label(page1, text=' # Frames:           ', height = 1, foreground= txtcolour, background=colour)

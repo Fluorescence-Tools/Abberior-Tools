@@ -53,7 +53,7 @@ class AbberiorGUI(tk.Tk):
         button_1 = tk.Button(self.frame_buttons, width = 10,            text = 'Connect',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Connect,anchor = 'w'                  ).grid(row = 0, column = 0)
         button_2 = tk.Button(self.frame_buttons, width = 9,             text = 'Overview', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(self.Overview,0,0), anchor = 'w').grid(row = 0, column = 1)
         # button_3 = tk.Button(self.frame_buttons, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Findpeak                              , state = tk.DISABLED).grid(row = 0,column = 2)
-        # button_4 = tk.Button(self.frame_buttons, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(Run_meas,0,0)                 ).grid(row = 0, column = 3)
+        button_4 = tk.Button(self.frame_buttons, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(self.Run_meas,0,0)                 ).grid(row = 0, column = 3)
         # button_5 = tk.Button(self.frame_buttons, width = 10,height =1,  text = 'Set value',activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = SET_VALUE                             ).grid(row = 1, column = 0)
         # button_6 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'Power',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = powerseries                           , state = tk.DISABLED).grid(row = 1, column = 1)
         # button_7 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'Pinhole',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = pinholeseries                         , state = tk.DISABLED).grid(row = 1, column = 2)
@@ -99,7 +99,18 @@ class AbberiorGUI(tk.Tk):
     def RELEASE(self, scaleval):
         #when binding this function to a scale release, automatically the value is passed
         #it is given this scaleval dummy to avoid an error
-        func.Findpeak(self)
+        func.Findpeak(self) #findpeak is currently  a dummy setting 10 random numbers
+    def Run_meas(self, Multi, Pos):
+        #global save_path
+        #mm = Multi
+        #save_path = 
+        self.y_coarse_offset = 0
+        func.Run_meas(self)
+        #pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561, 
+        #act640, act595, act775, act485_02, act518_02, act561_02, act640_02, 
+        #act595_02, act775_02, act_Autofocus, act_QFS, L485_value_01,
+        #L518_value_01,L561_value_01, L640_value_01, L595_value_01, L775_value_01, T, mm, Pos, pixelsize_global)
+#   
 
 
         
