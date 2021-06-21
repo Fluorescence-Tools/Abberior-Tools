@@ -121,11 +121,11 @@ def MultiRun_meas():
   
 button_1 = tk.Button(labtext_1, width = 10,            text = 'Connect',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Connect,anchor = 'w'                  ).grid(row = 0, column = 0)
 button_2 = tk.Button(labtext_1, width = 9,             text = 'Overview', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(Overview,0,0, a), anchor = 'w').grid(row = 0, column = 1)
-button_3 = tk.Button(labtext_1, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Findpeak                              ).grid(row = 0,column = 2)
+button_3 = tk.Button(labtext_1, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Findpeak                              , state = tk.DISABLED).grid(row = 0,column = 2)
 button_4 = tk.Button(labtext_1, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(Run_meas,0,0)                 ).grid(row = 0, column = 3)
 button_5 = tk.Button(labtext_1, width = 10,height =1,  text = 'Set value',activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = SET_VALUE                             ).grid(row = 1, column = 0)
-button_6 = tk.Button(labtext_1, width = 9, height =1,  text = 'Power',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = powerseries                           ).grid(row = 1, column = 1)
-button_7 = tk.Button(labtext_1, width = 9, height =1,  text = 'Pinhole',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = pinholeseries                         ).grid(row = 1, column = 2)
+button_6 = tk.Button(labtext_1, width = 9, height =1,  text = 'Power',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = powerseries                           , state = tk.DISABLED).grid(row = 1, column = 1)
+button_7 = tk.Button(labtext_1, width = 9, height =1,  text = 'Pinhole',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = pinholeseries                         , state = tk.DISABLED).grid(row = 1, column = 2)
 button_8 = tk.Button(labtext_1, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = MultiRun_meas                         ).grid(row = 1, column = 3)
 
 

@@ -16,6 +16,7 @@ Created on Tue May 19 15:41:20 2020
 #   making it easy to mistake the order.
 #several pieces of code are repeated multiple times - they should go in functions
 #there are a lot of pieces whose function seem unnesecary.
+#there are many typecasts without changing the variable name
 #
 #as a solution one might:
 #build the app into a class, solving the need for global variables and
@@ -333,17 +334,24 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
             #data =  r2
             data = io_red
             print('I hit this weird exception that seems unneeded!')
-    elif datashape == (1, px_num, px_num, 1):
-        #this is capturing some bug where the data has funky dimensions
-        io = pix_data[0,:,:,0]
-        pp.imshow(io)
-        data = io
-        print('funky data dimension found!')
-    else:
-        io = np.mean(pix_data, axis=3)[0] # create greyscale image object  
-        pp.imshow(io)
-        data = io
-        print('funky data dimension found!')
+    else: 
+        print('I hit this weird exception, debug me!')
+        raise ValueError
+    
+# =============================================================================
+#     #if these statements are never hit they can go
+#     elif datashape == (1, px_num, px_num, 1):
+#         #this is capturing some bug where the data has funky dimensions
+#         io = pix_data[0,:,:,0]
+#         pp.imshow(io)
+#         data = io
+#         print('funky data dimension found!')
+#     else:
+#         io = np.mean(pix_data, axis=3)[0] # create greyscale image object  
+#         pp.imshow(io)
+#         data = io
+#         print('funky data dimension found!')
+# =============================================================================
     #this else statement seems unneeded
 #    else:
 #        #these if statements too
