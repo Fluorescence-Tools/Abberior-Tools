@@ -41,6 +41,13 @@ import shutil
 import matplotlib.cm as cm
 import tkinter as tk
 
+#imports used by Findpeak module
+from sklearn.neighbors import NearestNeighbors
+import math
+import scipy
+from astropy.stats import RipleysKEstimator
+from scipy.ndimage.filters import gaussian_filter
+
 def SSS(scale_03_value):
     Findpeak()
     
@@ -169,11 +176,12 @@ def find_circle(data, radius_thresh_min, radius_thresh_max, distance_thresh, pix
 
     return x_coordinate, y_coordinate, image, thresh, gray, shifted, radius_corr, result, image_orig
     
-def Connect(T):
+def Connect(self):
     #this business with a global a is bad.
     #I'm not sure what will break if I remove it, but it should be removed
-    global a
+    #global a
     a=0
+    T = self.T
     try:
         im=specpy.Imspector()
     except (RuntimeError):
@@ -182,48 +190,52 @@ def Connect(T):
         
     if a==0:
         print('connect')
-        T.insert(tk.END, 'connection successful')
+        T.insert(tk.END, 'connection successful\n')
     else:
         print('disconnect')
-        T.insert(tk.END, 'connection failed')
+        T.insert(tk.END, 'connection failed\n')
+    print ('value of circle is %i' % self.circle.get())
     return a
 
 
-def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overview_value, laser_overview_entry, frames_overview_value, ROIsize_overview_value, dwell_overview_value, pxsize_overview_value, circle):   
+def Overview(self,Multi, Pos):
+    #, path, foldername, scale_01, frame_top, T,  laser_overview_value, 
+    #laser_overview_entry, frames_overview_value, ROIsize_overview_value, 
+    #dwell_overview_value, pxsize_overview_value, circle):   
     
     #residual / unneeded imports
     #import time
     #global pix_data #whatever this is, it should not be global
     
-    #some directory is made
-    if os.path.exists('{}{}'.format(path,foldername)) == False:
-        os.makedirs('{}{}'.format(path,foldername))    
+    #some directory is made or re-made
+    testfolder = os.path.join(self.dataout,self.foldername)
+    if os.path.exists(testfolder) == False:
+        os.makedirs(testfolder)    
     else:
-        shutil.rmtree('{}{}{}'.format(path,foldername,'/'))#(D:/current data/testfolder')
-        os.makedirs('{}{}'.format(path,foldername))
-    
+        shutil.rmtree(testfolder)#(D:/current data/testfolder')
+        os.makedirs(testfolder)
     
     #get values from GUI entries
-    roi_size = float(ROIsize_overview_value.get())*1e-06          # in meter
-    Dwelltime= np.around(float(dwell_overview_value.get()))*1e-06         # in seconds  
-    number_frames = int(frames_overview_value.get())      #Type number of frames t in xyt mode
-    z_position = 0        # in meter
-    x_pixelsize = float(pxsize_overview_value.get())*1e-09       # in meter
-    y_pixelsize = float(pxsize_overview_value.get())*1e-09       # in meter
-    z_pixelsize = float(pxsize_overview_value.get())*1e-09       # in meter
+    roi_size = float(self.ROIsize_overview_value.get())*1e-06          # in meter
+    Dwelltime= np.around(float(self.dwell_overview_value.get()))*1e-06         # in seconds  
+    number_frames = int(self.frames_overview_value.get())      #Type number of frames t in xyt mode
+    #z_position = 0        # in meter
+    x_pixelsize = float(self.pxsize_overview_value.get())*1e-09       # in meter
+    y_pixelsize = float(self.pxsize_overview_value.get())*1e-09       # in meter
+    z_pixelsize = float(self.pxsize_overview_value.get())*1e-09       # in meter
     px_num = roi_size/x_pixelsize
 
 
-    Streaming_HydraHarp= True # Type True or False for Streaming via HydraHarp
-    modelinesteps= True      #Type True for linesteps
+    #Streaming_HydraHarp= True # Type True or False for Streaming via HydraHarp
+    #modelinesteps= True      #Type True for linesteps
     # for xyt mode  784
     #for xyz_mode 528
     xyt_mode = 784#1296           # for xyt mode  784
     
     
      #here the laser values are read in, but why the strange format
-    laser_overview = [int(s) for s in laser_overview_entry.get().split(',')]
-    laser_overview_VALUE = [int(s) for s in laser_overview_value.get().split(',')]
+    laser_overview = [int(s) for s in self.laser_overview_entry.get().split(',')]
+    laser_overview_VALUE = [int(s) for s in self.laser_overview_value.get().split(',')]
 #    laser_overview_len = len([laser_overview]) 
     laser_steps = len(laser_overview)
     number_linesteps = laser_steps
@@ -276,12 +288,9 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
     meas.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
     meas.set_parameters('ExpControl/scan/range/x/len',roi_size)
     meas.set_parameters('ExpControl/scan/range/y/len',roi_size)
-
     meas.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
     meas.set_parameters('ExpControl/scan/range/t/res',number_frames)
-
     meas.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
-
     meas.set_parameters('ExpControl/gating/linesteps/laser_on',LASER_ACT)
 
     #why only if laser steps = 1?
@@ -308,6 +317,7 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
     #here the data is read out of the image
     #get data and sum over the axes t and z
     xy_data = [np.sum(meas.stack(i).data(), axis = (0, 1)) for i in range(4)]
+    self.xy_data = xy_data
     datashape = meas.stack(0).data().shape
     
     #this function is needed for the elif statement below. I am not sure
@@ -319,25 +329,16 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
     r2 = 0
     print('xy dimensions of overview image is (%i, %i)'% xy_data[0].shape)
     #the data array should have format [time, z, y, x]
-    if datashape == (1,number_frames,np.round(px_num,0),np.round(px_num,0)):
-        r1 = xy_data[0] + xy_data[2] # green channels
-        r2 = xy_data[1] + xy_data[3] # red channels
-        io_green = r1
-        io_red =   r2
-        pp.imshow(io_red)
-
-        #this seems like it can go.
-        if laser_steps == 1:
-            data = io_red
-            print('I hit this weird exception that seems unneeded!')
-        else:
-            #data =  r2
-            data = io_red
-            print('I hit this weird exception that seems unneeded!')
-    else: 
-        print('I hit this weird exception, debug me!')
-        raise ValueError
-    
+    assert datashape == (1,number_frames,np.round(px_num,0),np.round(px_num,0)), \
+        'The image shape does not match the expected shape'
+    r1 = xy_data[0] + xy_data[2] # green channels
+    r2 = xy_data[1] + xy_data[3] # red channels
+    #this is hit when an overview is created
+    if laser_steps == 1:
+        data = r2+r1
+    else: #maybe we want to change this behavior
+        data = r2
+    #pp.imshow(data) this doesn't seem to do anything
 # =============================================================================
 #     #if these statements are never hit they can go
 #     elif datashape == (1, px_num, px_num, 1):
@@ -365,7 +366,7 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
 #            r1 =1
 #            r2 = 2
 #            data = Image.open('{}{}'.format(path,'offline_image.tiff'))
-    scale_01.config(to =np.max(data))    
+    self.scale_01.config(to =np.max(data))    
            
 
     print(path) 
@@ -377,12 +378,12 @@ def Overview(Multi, Pos, path, foldername, scale_01, frame_top, T,  laser_overvi
     photo = photo.resize((400, 400), Image.ANTIALIAS)
     photoTk = ImageTk.PhotoImage(photo)
     photo.save('{}{}'.format(path,'Overview_image.tiff'), format = 'TIFF')#'D:/current data/','Overview_image.tiff'
-    label = tk.Label(frame_top, image=photoTk)
+    label = tk.Label(self.frame_topleft, image=photoTk)
     #this seems unnesecary, but for some reason it is needed
     label.image = photoTk
     label.grid(row=0)
-    T.delete('1.0', tk.END) 
-    T.insert(tk.END, "Overview created") 
+    self.T.delete('1.0', tk.END) 
+    self.T.insert(tk.END, "Overview created") 
     return data, roi_size, r1, r2, x_pixelsize
   
 def setDefaultMeasurementSettings(meas):
@@ -407,67 +408,65 @@ def setDefaultMeasurementSettings(meas):
     meas.set_parameters('ExpControl/gating/pulses/pulse_chan/delay',[0.0, 0.0, 0.0, 0.0])
     meas.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
     
-def Findpeak(path, foldername, scale_01, scale_02, scale_03, roi_size, frame_top, T, frame_top3, a, circle, pixelsize_global):
-    from PIL import Image,ImageTk
-    from scipy.stats import stats
-    from skimage.feature import peak_local_max
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg#, NavigationToolbar2TkAgg
-    from scipy.ndimage.filters import gaussian_filter
-    import matplotlib.cm as cm
-    import numpy as np
-    import os
-    import math
-    import scipy.stats
-    from scipy.spatial import distance
-    from astropy.stats import RipleysKEstimator
-    from sklearn.neighbors import NearestNeighbors
-    import matplotlib.pyplot as pp
+def Findpeak(self):
+    #function uses slightly different names, I don't want to invest right now
+    #in changing them all
+    path = self.dataout
+    roi_size = self.ROIsize
+    T = self.T
+    circle = self.circle.get()
+    foldername = self.foldername
+    pixelsize_global = self.pxsize_overview_value
+    # global x_new
+    # global y_new
+    # global R
+    # global scale_val
+    # global aa
+    # global number_peaks_new 
+    # global time_wait_Multirun
     
-    global x_new
-    global y_new
-    global R
-    global scale_val
-    global aa
-    global number_peaks_new 
-    global time_wait_Multirun
-    
-    global x_transfer
-    global y_transfer
-    global CO
+    # global x_transfer
+    # global y_transfer
+    # global CO
 
-    threshold = scale_01.get()      # define the lower threshold value
+    threshold = self.scale_01.get()      # define the lower threshold value
     print("threshold value is %.1f" % threshold)
-    R_min = scale_02.get()          # additional distance threshold
-    R_max = scale_03.get()
-    exc_border_peaks = 1 # type 0 for activate for border peaks 
-    if a==0:
-        path = 'D:/current data/'
-        data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
-        
-    else:
-        if circle ==0:
-            path = path
-            data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
-        elif circle == 1:
-            path = path
-            data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+    R_min = self.scale_02.get()          # additional distance threshold
+    R_max = self.scale_03.get()
+    #exc_border_peaks = 1 # type 0 for activate for border peaks 
+    
+    # if data is Red, probably want to change
+    data = self.xydata[1] + self.xydata[2] 
+    #I guess this was a way to retrieve the data
+# =============================================================================
+#     if a==0:
+#         path = 'D:/current data/'
+#         data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+#         
+#     else:
+#         if circle ==0:
+#             path = path
+#             data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+#         elif circle == 1:
+#             path = path
+#             data = Image.open('{}{}'.format(path,'Overview_image.tiff'))
+# =============================================================================
 
             
-        
-    if circle ==0:   
+    #what does this do?
+    if self.circle ==0:   
         data_sz = data.size
         zz = np.zeros(data_sz)
-        aa = roi_size
-        
-    
-    ############################################
-        #Calculate parameters    
-    ############################################
-    
-        if os.path.exists('{}{}'.format(path,foldername)) == False:
-            os.makedirs('{}{}'.format(path,foldername))
-            os.makedirs('{}{}'.format(path, 'test_images.tiff'))
+        aa = self.roi_size
+        testfolder = os.path.join(path, self.foldername)
+        #why is this needed?
+        if os.path.exists(testfolder) == False:
+            os.makedirs(testfolder)
+            os.makedirs(os.path.join(path, 'test_images.tiff'))
             
+    ############################################
+    #Calculate parameters    
+    ############################################
     
         imarray = np.array(data)
         imarray_thres = np.where(imarray > threshold,  imarray, 0)
@@ -667,9 +666,9 @@ def Findpeak(path, foldername, scale_01, scale_02, scale_03, roi_size, frame_top
 
 #########################
          
-            canvas = FigureCanvasTkAgg(f1, master = frame_top3)
+            canvas = FigureCanvasTkAgg(f1, master = self.frame_topright)
             canvas.get_tk_widget().grid(row=0, column=0, rowspan=1)
-            label = Label(frame_top,image=photo)
+            label = tk.Label(self.frame_topleft,image=photo)
             label.image = photo
             label.grid(row=0)
             
@@ -714,8 +713,8 @@ def Findpeak(path, foldername, scale_01, scale_02, scale_03, roi_size, frame_top
                 TEST[2,i]=P
                 TEST[3,i]=i
                
-            T.delete('1.0', END)  
-            T.insert(END,'{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}'.format('peaks_found:  ',number_peaks_new,'\n',
+            T.delete('1.0', tk.END)  
+            T.insert(tk.END,'{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}'.format('peaks_found:  ',number_peaks_new,'\n',
                                                                      '\n',
                                                                      'Surface-density [µm^(-2)]:',rho,'\n',
                                                                      'Area of spots [µm^(2)]:',AREA_spots,'\n',
@@ -724,10 +723,11 @@ def Findpeak(path, foldername, scale_01, scale_02, scale_03, roi_size, frame_top
                                                                      'Prop. of Multi-events:   ',np.around(100-(TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%'))
             time_wait_Multirun = number_peaks_new
             
+    #this uses some pyramid mean shift filtering whatever it is
     if circle ==1:
         data_sz = data.size
         zz = np.zeros(data_sz)
-        aa = roi_size
+        #aa = roi_size
     
         if os.path.exists('{}{}'.format(path,foldername)) == False:
             os.makedirs('{}{}'.format(path,foldername))
@@ -827,9 +827,9 @@ def Findpeak(path, foldername, scale_01, scale_02, scale_03, roi_size, frame_top
         pp.legend(fontsize = LABELSIZE)
         print(pixelsize_global)
         
-        canvas = FigureCanvasTkAgg(f1, master = frame_top3)  
+        canvas = FigureCanvasTkAgg(f1, master = self.frame_topright)  
         canvas.get_tk_widget().grid(row=0, column=0, rowspan=1)          
-        label = Label(frame_top,image=photo)
+        label = tk.Label(self.frame_topleft,image=photo)
         label.image = photo
         label.grid(row=0)
 
@@ -837,10 +837,12 @@ def Findpeak(path, foldername, scale_01, scale_02, scale_03, roi_size, frame_top
 #########################
            
         CO = 0
-        time_wait_Multirun = number_peaks_new
-             
-        
-    return photo, number_peaks_new, CO
+        #time_wait_Multirun = number_peaks_new
+    #I think these things don't do anything, I will just keep them here for now
+    self.photoTk = photo
+    self.number_peaks_new = number_peaks_new
+    self.CO = CO
+    return
     
 
 def powerseries(laser_value_01, laser_STEDvalue_01,laser_01,laser_STED_01):
@@ -1393,15 +1395,13 @@ def SAVING(path,a):
 
 
        
-def layout(path, root):
-    
+def layout(self):
+    root = self.parent
     root.title("Imspector Control Interface")
     root1 = tk.Frame(root, width = 350, height = 350, bg = 'grey')
     root1.grid()
-   
-    foldername= 'testfolder'                         #testfolder'#Type here the foldername
- 
-    image_ID = Image.open(r'C:\Users\Abberior_admin\Desktop\Abberior-Tools\Alphatubulin.tif')
+    icon_dir  = os.path.dirname(os.path.realpath(__file__))
+    image_ID = Image.open(os.path.join(icon_dir,r'Alphatubulin.tif'))
     resized = image_ID.resize((400, 400), Image.ANTIALIAS)
     #when debugging, multiple tk instances can exist, then the master must be
     #specified for it to link the image with the right tcl instance.
@@ -1444,8 +1444,13 @@ def layout(path, root):
     canvas = FigureCanvasTkAgg(f, master = frame_top3)
     canvas.get_tk_widget().grid(row=0, column=0)
     
-    labtext_1 = tk.Label(frame_top4,width = 300, height = 200,bg = colour)
-    labtext_1.grid(row=1, column = 0, sticky = 's')
+    #this seems to have no function, but it causes trouble
+    labtext_1 = tk.Frame(frame_top4,width = 300, height = 200,bg = colour)
+    labtext_1.grid()
+    
+    #button1 = tk.Button(frame_top4, width = 10,            text = 'Connect')
+    #button1.grid()
+    
     
     T = tk.Text(frame_top4, height=10, width=37)
     T.grid()
@@ -1464,7 +1469,7 @@ def layout(path, root):
                        
                        
     style.theme_create('JHB', parent="alt", settings=settings)
-    style.theme_create('JHB2', parent="alt", settings=settings)
+    #style.theme_create('JHB2', parent="alt", settings=settings)
     style.theme_use('JHB')
 
     nb = ttk.Notebook(frame_top2, width = 7000)
@@ -1745,6 +1750,82 @@ def layout(path, root):
     THRES_value_01.grid(row = 6, column = 5, sticky = 'en')
     
     a=0
-    
-    out = [frame_top, tk.Label, frame_top2, frame_top3, frame_top4, labtext_1, T, style, nb, page1, page2, page3, page4, frame_spacer_01,frame_5, frame_6, frame_7, frame_8, a, colour, foldername, pxsize_01,ROIsize_01, dwell_01, frames_01, var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15, L485_value_01,L518_value_01,L561_value_01, L640_value_01, L595_value_01, L775_value_01, MultiRUN_01, laser_overview_value, laser_overview_entry, frames_overview_value,ROIsize_overview_value, dwell_overview_value, pxsize_overview_value] 
-    return out    
+    #put variables from GUI in class variables such that they can be accessed
+    #from anywhere
+    #sometimes the naming is changed for better readability
+    self.frame_topleft = frame_top
+    self.frame_botleft = frame_top2
+    self.frame_topright = frame_top3
+    self.frame_botright = frame_top4
+    self.frame_buttons = labtext_1
+    self.T = T
+    self.frame_spacer_01 = frame_spacer_01 # shouldn't need
+    self.frame_5 = frame_5 # shouldn't need
+    self.frame_6 = frame_6#Shouldn't need
+    self.frame_7 = frame_7 # shouldn't need
+    self.frame_8 = frame_8 # shouldn't need
+    #self.a = a # this a thing should not be needed, it is not well implemented
+    self.color = colour # move to american spelling # shouldn't need
+
+    self.pxsize = pxsize_01
+    self.ROIsize = ROIsize_01
+    self.dwelltime = dwell_01
+    self.NoFrames = frames_01
+    self.L485_1 = var1
+    self.L518_1 = var2
+    self.L561_1 = var3
+    self.L640_1 = var4
+    self.L595_1 = var5
+    self.L775_1 = var6
+    self.L485_2 = var7
+    self.L518_2 = var8
+    self.L561_2 = var9
+    self.L640_2 = var10
+    self.L595_2 = var11
+    self.L775_2 = var12
+    self.AutofocusOnROISelect = var13
+    self.AutofocusOnOverview = var14
+    self.circle = var15
+    self.L485_value = L485_value_01 #don't need this 01 appendix
+    self.L518_value = L518_value_01
+    self.L561_value = L561_value_01
+    self.L640_value = L640_value_01
+    self.L595_value = L595_value_01
+    self.L775_value = L775_value_01
+    self.multirun = MultiRUN_01
+    self.laser_overview_value = laser_overview_value
+    self.laser_overview_entry = laser_overview_entry
+    self.frames_overview_value = frames_overview_value
+    self.ROIsize_overview_value = ROIsize_overview_value
+    self.dwell_overview_value = dwell_overview_value
+    self.pxsize_overview_value = pxsize_overview_value
+    return    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
