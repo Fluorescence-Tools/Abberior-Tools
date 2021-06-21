@@ -62,30 +62,34 @@ class AbberiorGUI(tk.Tk):
         scale_01_label= tk.Label(self.frame_7, text='Thres:', height = 1,foreground= 'white', background =self.color, font = ('Sans','9','bold'))
         scale_01_label.grid(row = 0, column = 0, sticky = tk.W+tk.N)
         scale_01 = tk.Scale(self.frame_7, from_=0.5, to=5, showvalue=1, background =self.color)
-        scale_01_value = scale_01.get()
+        #scale_01_value = scale_01.get()
         scale_01.set(20)
         scale_01.bind("<ButtonRelease-1>", self.RELEASE)
         scale_01.grid(row = 1, column = 0, sticky = tk.W+tk.N)
         self.scale_01 = scale_01
         
         scale_02_label= tk.Label(self.frame_7, text='Rmin:', height = 1,\
-                                 foreground= 'white', background =self.color, font = ('Sans','9','bold'))
+                                 foreground= 'white', background =self.color,\
+                                     font = ('Sans','9','bold'))
         scale_02_label.grid(row = 0, column = 1, sticky = tk.W+tk.N)
-        scale_02 = tk.Scale(self.frame_7, from_=1, to=50, showvalue=1, background =colour)
-        scale_02_value = scale_02.get()
+        scale_02 = tk.Scale(self.frame_7, from_=1, to=50, showvalue=1, background =self.color)
+        #scale_02_value = scale_02.get()
         scale_02.set(20)
-        scale_02.bind("<ButtonRelease-1>", RELEASE)
+        scale_02.bind("<ButtonRelease-1>", self.RELEASE)
         scale_02.grid(row = 1, column = 1, sticky = tk.W+tk.N)
         self.scale_02 = scale_02
         
-        scale_03_label= tk.Label(frame_7, text='Rmax:', height = 1,foreground= 'white', background =colour, font = ('Sans','9','bold') )
+        scale_03_label= tk.Label(self.frame_7, text='Rmax:', height = 1,\
+                                 foreground= 'white', background =self.color, \
+                                     font = ('Sans','9','bold') )
         scale_03_label.grid(row = 0, column = 2, sticky = tk.W+tk.N)
-        scale_03 = tk.Scale(frame_7, from_=1, to=50, showvalue=1, background =colour)
-        scale_03_value = scale_03.get()
+        scale_03 = tk.Scale(self.frame_7, from_=1, to=50, showvalue=1, background = self.color)
+        #scale_03_value = scale_03.get()
         scale_03.set(50)
-        scale_03.bind("<ButtonRelease-1>", RELEASE)
+        scale_03.bind("<ButtonRelease-1>", self.RELEASE)
         scale_03.grid(row = 1, column = 2, sticky = tk.W+tk.N)
         self.scale_03 = scale_03
+        
     def make_layout(self): #bind function to this class
         func.layout(self)
     def Connect(self):
@@ -203,5 +207,5 @@ class AbberiorGUI(tk.Tk):
 #Type here the directory of GUI python file is stored: path = 'C:/Users/Abberior_admin/Desktop/GUI/'
 dataout = r'D:\current data' 
 root= tk.Tk()
-AbberiorGUI(root, dataout)#.pack(side="top", fill="both", expand=True)
+abberiorGUI = AbberiorGUI(root, dataout)#.pack(side="top", fill="both", expand=True)
 root.mainloop()

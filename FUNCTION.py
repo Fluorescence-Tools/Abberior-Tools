@@ -194,7 +194,6 @@ def Connect(self):
     else:
         print('disconnect')
         T.insert(tk.END, 'connection failed\n')
-    print ('value of circle is %i' % self.circle.get())
     return a
 
 
@@ -366,13 +365,11 @@ def Overview(self,Multi, Pos):
 #            r1 =1
 #            r2 = 2
 #            data = Image.open('{}{}'.format(path,'offline_image.tiff'))
-    self.scale_01.config(to =np.max(data))    
+    self.scale_01.config(to = np.max(data))    
            
-
-    print(path) 
     #display overview image, see 
     #https://stackoverflow.com/questions/10965417/how-to-convert-a-numpy-array-to-pil-image-applying-matplotlib-colormap
-    photo = cm.hot(data.astype(np.float)) # cm needs floats
+    photo = cm.hot(data.astype(np.float)/max(data.flatten())) # cm needs floats
     photo = np.uint8(photo * 255)
     photo = Image.fromarray(photo)
     photo = photo.resize((400, 400), Image.ANTIALIAS)
@@ -436,7 +433,7 @@ def Findpeak(self):
     #exc_border_peaks = 1 # type 0 for activate for border peaks 
     
     # if data is Red, probably want to change
-    data = self.xydata[1] + self.xydata[2] 
+    data = self.xy_data[1] + self.xy_data[2] 
     #I guess this was a way to retrieve the data
 # =============================================================================
 #     if a==0:
@@ -721,7 +718,7 @@ def Findpeak(self):
                                                                      'Total Area [µm^(2)]:',((roi_size*1000000)*(roi_size*1000000)),'\n',
                                                                      'Prop. of Singlet-events: ',np.around((TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%','\n',
                                                                      'Prop. of Multi-events:   ',np.around(100-(TEST[2,1]/np.sum(TEST[2,1:])*100), decimals=2),'%'))
-            time_wait_Multirun = number_peaks_new
+            #time_wait_Multirun = number_peaks_new
             
     #this uses some pyramid mean shift filtering whatever it is
     if circle ==1:
@@ -839,7 +836,7 @@ def Findpeak(self):
         CO = 0
         #time_wait_Multirun = number_peaks_new
     #I think these things don't do anything, I will just keep them here for now
-    self.photoTk = photo
+    #self.photoTk = photo # this was giving an error - I hope it is not needed
     self.number_peaks_new = number_peaks_new
     self.CO = CO
     return
@@ -1241,7 +1238,7 @@ def Run_meas(pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561
                     os.rename('{}{}'.format('D:/current data/',files_txt[ii]), '{}{}{}{}{}'.format('D:/current data/','Overview_','spot_', ii, '.ptu'))
                     
             else:
-                save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', number_peaks_new-1)
+                save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', self.number_peaks_new-1)
                 os.makedirs(save_path)  
                 (im.measurement(im.measurement_names()[1])).save_as('{}{}{}{}{}'.format(save_path,'/','Overview_', Pos,'.msr'))
                  
