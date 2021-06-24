@@ -54,33 +54,35 @@ from scipy.ndimage.filters import gaussian_filter
 def SSS(scale_03_value):
     Findpeak()
     
-def set_value(pxsize_01,ROIsize_01, dwell_01, frames_01, var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14, var15):
-    pixelsize = pxsize_01.get()
-    Roisize= ROIsize_01.get()
-    dwelltime = dwell_01.get()
-    frame_number = frames_01.get()
-    
-    act485 = var1.get()
-    act518 = var2.get()
-    act561 = var3.get()
-    act640 = var4.get()
-    act595 = var5.get()
-    act775 = var6.get()
-    
-    act485_02 = var7.get()
-    act518_02 = var8.get()
-    act561_02 = var9.get()
-    act640_02 = var10.get()
-    act595_02 = var11.get()
-    act775_02 = var12.get()
-    act_Autofocus = var13.get()
-    act_QFS = var14.get()
-    circ = var15.get()
-
-#    pixelsize_overview = pxsize_overview_value.get()
-    
-    
-    return pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561, act640, act595, act775, act485_02, act518_02, act561_02, act640_02, act595_02, act775_02, act_Autofocus, act_QFS, circ
+# =============================================================================
+# # def set_value(pxsize_01,ROIsize_01, dwell_01, frames_01, var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14, var15):
+# #     pixelsize = pxsize_01.get()
+# #     Roisize= ROIsize_01.get()
+# #     dwelltime = dwell_01.get()
+# #     frame_number = frames_01.get()
+#     
+# #     act485 = var1.get()
+# #     act518 = var2.get()
+# #     act561 = var3.get()
+# #     act640 = var4.get()
+# #     act595 = var5.get()
+# #     act775 = var6.get()
+#     
+# #     act485_02 = var7.get()
+# #     act518_02 = var8.get()
+# #     act561_02 = var9.get()
+# #     act640_02 = var10.get()
+# #     act595_02 = var11.get()
+# #     act775_02 = var12.get()
+# #     act_Autofocus = var13.get()
+# #     act_QFS = var14.get()
+# #     circ = var15.get()
+# 
+# # #    pixelsize_overview = pxsize_overview_value.get()
+#     
+#     
+# #     return pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561, act640, act595, act775, act485_02, act518_02, act561_02, act640_02, act595_02, act775_02, act_Autofocus, act_QFS, circ
+# =============================================================================
     
     
 def find_circle(data, radius_thresh_min, radius_thresh_max, distance_thresh, pixelsize_global):
