@@ -19,6 +19,7 @@ import tkinter as tk
 import specpy
 import numpy as np
 from functools import partial
+import time
 #edits by NV
 #this code has numerous serious issues
 #it works, but it contains several features that are considered bad practice
@@ -57,7 +58,7 @@ class AbberiorGUI(tk.Tk):
         # button_5 = tk.Button(self.frame_buttons, width = 10,height =1,  text = 'Set value',activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = SET_VALUE                             ).grid(row = 1, column = 0)
         # button_6 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'Power',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = powerseries                           , state = tk.DISABLED).grid(row = 1, column = 1)
         # button_7 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'Pinhole',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = pinholeseries                         , state = tk.DISABLED).grid(row = 1, column = 2)
-        # button_8 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = MultiRun_meas                         ).grid(row = 1, column = 3)
+        button_8 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.MultiRun_meas                         ).grid(row = 1, column = 3)
 
         scale_01_label= tk.Label(self.frame_7, text='Thres:', height = 1,foreground= 'white', background =self.color, font = ('Sans','9','bold'))
         scale_01_label.grid(row = 0, column = 0, sticky = tk.W+tk.N)
@@ -96,21 +97,45 @@ class AbberiorGUI(tk.Tk):
         func.Connect(self)
     def Overview(self,Multi, Pos):
         func.Overview(self, Multi, Pos)
+    def Findpeak(self): # alias
+        func.Findpeak(self)
     def RELEASE(self, scaleval):
         #when binding this function to a scale release, automatically the value is passed
         #it is given this scaleval dummy to avoid an error
-        func.Findpeak(self) #findpeak is currently  a dummy setting 10 random numbers
+        self.Findpeak() #findpeak is currently  a dummy setting 10 random numbers
     def Run_meas(self, Multi, Pos):
-        #global save_path
-        #mm = Multi
-        #save_path = 
         self.y_coarse_offset = 0
         func.Run_meas(self)
-        #pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561, 
-        #act640, act595, act775, act485_02, act518_02, act561_02, act640_02, 
-        #act595_02, act775_02, act_Autofocus, act_QFS, L485_value_01,
-        #L518_value_01,L561_value_01, L640_value_01, L595_value_01, L775_value_01, T, mm, Pos, pixelsize_global)
-#   
+    def MultiRun_meas(self):
+
+        runs = int(self.multirun.get()) ### define the number of Rois you want to scan
+       
+        #z_position =  5e-08 #float(pixelsize)*1e-09         # in meter
+        #x_pixelsize = float(pixelsize)*1e-09        # in meter
+        #y_pixelsize = float(pixelsize)*1e-09        # in meter
+        #z_pixelsize = float(pixelsize)*1e-09        # in meter
+        roisize  =    float(self.ROIsize.get())*1e-06            # in meter    
+        #Dwelltime= float(dwelltime)*1e-06         # in seconds 
+        #number_frames = float(frame_number)                                
+        #time_wait = 1
+    
+        #this re-connection is not needed in principle
+        im = specpy.Imspector()
+        meas= im.active_measurement()
+        y_off = meas.parameters('ExpControl/scan/range/offsets/coarse/y/g_off') # current stage position in x [m]
+        y_add = y_off + 1.1 * roisize * np.linspace(0,runs-1, runs) ### initial position 
+        
+        for i in y_add:
+            print('Overview=',i)
+            self.Overview(1,i)
+            self.Findpeak()
+            #time.sleep(1)
+            self.Run_meas(1,i) ### 1 = TRUE for MUltirun
+            
+            #print('sample=',y_add,'#peaks=',number_peaks_new, 'timewait=',(time_wait * number_peaks_new +1))
+            #func.SAVING(save_path, a)
+            im.close(im.measurement(im.measurement_names()[1]))
+
 
 
         

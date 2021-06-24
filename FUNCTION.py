@@ -41,6 +41,7 @@ import shutil
 import matplotlib.cm as cm
 import tkinter as tk
 import time
+from datetime import datetime
 
 #imports used by Findpeak module
 from sklearn.neighbors import NearestNeighbors
@@ -409,8 +410,9 @@ def setDefaultMeasurementSettings(meas):
     
 def Findpeak(self):
     import random
-    self.roi_xs = np.array([random.random() *10 for i in range(10)])
-    self.roi_ys = np.array([random.random() *10 for i in range(10)])
+    self.roi_xs = np.array([random.random() *10 for i in range(3)])
+    self.roi_ys = np.array([random.random() *10 for i in range(3)])
+    self.number_peaks = len(self.roi_xs)
 
 # =============================================================================
 # def Findpeak(self):
@@ -1070,11 +1072,13 @@ def Run_meas(self):
     #this function needs x_roi_size and y_roi_size, which where global before
     #aliasses for class variables are given here, it is cleaner to implement 
     #them everywhere, but I don't want to do that now.
+    #work in progress to debug abd clean this functions.
     Multi = self.multirun
     Pos = self.y_coarse_offset
     pixelsize = self.pxsize.get()
     T = self.T
-    pixelsize_global = self.pxsize_overview_value.get()
+    #values are by default read in as tring, have to convert
+    pixelsize_global = float(self.pxsize_overview_value.get())
     
     #consider moving below part to separate function
     z_position =  5e-08 #float(pixelsize)*1e-09         # in meter
@@ -1180,13 +1184,20 @@ def Run_meas(self):
 # =============================================================================
     x_global_offset = M_obj.parameters('ExpControl/scan/range/x/off')
     y_global_offset = M_obj.parameters('ExpControl/scan/range/y/off')
-    x_roi_new = self.roi_xs # np.loadtxt('D:/current data/x_transfer.dat') - x_global_offset
-    y_roi_new = self.roi_ys # np.loadtxt('D:/current data/y_transfer.dat') - y_global_offset
-    
-    for i in range(1,x_roi_new.size):
+    try:
+        x_roi_new = self.roi_xs # np.loadtxt('D:/current data/x_transfer.dat') - x_global_offset
+        y_roi_new = self.roi_ys # np.loadtxt('D:/current data/y_transfer.dat') - y_global_offset
+    except RecursionError:
+        self.T.insert(tk.END, 'no peaks positions in memory')
+        raise RecursionError
+    #location to save the files collected in next loop
+    dateTimeObj = datetime.now()
+    timestamp = dateTimeObj.strftime("%Y-%b-%d-%H-%M-%S")
+    save_path = os.path.join(self.dataout, timestamp + 'Overview_%.2f_numberSPOTS_%i' % (Pos, self.number_peaks))
+    os.makedirs(save_path)  
+    for i in range(x_roi_new.size):
         x_position = x_roi_new[i]
         y_position = y_roi_new[i]
-           
         d = im.active_measurement()
         M_obj.clone(d.active_configuration())
         M_obj.activate(M_obj.configuration(i))          
@@ -1250,36 +1261,40 @@ def Run_meas(self):
         im.run(M_obj)
         time.sleep(time_wait) 
                 
-    #        
-        if Multi ==0:
-            save_path = '{}{}{}'.format('D:/current data/','Overview','.msr')
-            (im.measurement(im.measurement_names()[0])).save_as(save_path)
-            im.close(im.measurement(im.measurement_names()[0])) 
-            files = os.listdir('D:/current data/')
-            files_txt = [i for i in files if i.endswith('.ptu')]
-            n_files_txt = len(files_txt)
-                
-            for ii in range(n_files_txt):
-                new_path = '{}{}{}{}'.format('D:/current data/testfolder/ptu_files/','measurement_',ii,'.ptu')
-                os.rename('{}{}'.format('D:/current data/',files_txt[ii]), '{}{}{}{}{}'.format('D:/current data/','Overview_','spot_', ii, '.ptu'))
-                
-        else:
-            save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', self.number_peaks_new-1)
-            os.makedirs(save_path)  
-            (im.measurement(im.measurement_names()[1])).save_as('{}{}{}{}{}'.format(save_path,'/','Overview_', Pos,'.msr'))
-             
-            files = os.listdir('D:/current data/')
-            files_ptu = [i for i in files if i.endswith('.ptu')]
-            files_dat = [i for i in files if i.endswith('.dat')]
+    #I don't know what this is supposed to do
+    if Multi ==0:
+        raise NotImplementedError
+# =============================================================================
+#             save_path = '{}{}{}'.format('D:/current data/','Overview','.msr')
+#             (im.measurement(im.measurement_names()[0])).save_as(save_path)
+#             im.close(im.measurement(im.measurement_names()[0])) 
+#             files = os.listdir('D:/current data/')
+#             files_txt = [i for i in files if i.endswith('.ptu')]
+#             n_files_txt = len(files_txt)
+#                 
+#             for ii in range(n_files_txt):
+#                 new_path = '{}{}{}{}'.format('D:/current data/testfolder/ptu_files/','measurement_',ii,'.ptu')
+#                 os.rename('{}{}'.format('D:/current data/',files_txt[ii]), '{}{}{}{}{}'.format('D:/current data/','Overview_','spot_', ii, '.ptu'))
+# =============================================================================
+
+    else:
+        #save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', self.number_peaks)
+        msrout = os.path.join(save_path, 'Overview%.2f.msr' % Pos)
+        im.measurement(im.measurement_names()[1]).save_as(msrout)
+         
+        files = os.listdir('D:/current data/')
+        files_ptu = [i for i in files if i.endswith('.ptu')]
+        files_dat = [i for i in files if i.endswith('.dat')]
+        
+        n_files_ptu = len(files_ptu)
+        n_files_dat = len(files_dat)
             
-            n_files_ptu = len(files_ptu)
-            n_files_dat = len(files_dat)
-                
-            for ii in range(n_files_ptu):
-                os.rename('{}{}'.format('D:/current data/',files_ptu[ii]), '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', ii, '.ptu'))
-            
-            for ii in range(n_files_dat):
-                os.rename('{}{}'.format('D:/current data/',files_dat[ii]), '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', files_dat[ii],'.dat'))
+        for ii in range(n_files_ptu):
+            os.rename('{}{}'.format('D:/current data/',files_ptu[ii]), \
+                      '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', ii, '.ptu'))
+        
+        for ii in range(n_files_dat):
+            os.rename('{}{}'.format('D:/current data/',files_dat[ii]), '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', files_dat[ii],'.dat'))
             
 # =============================================================================
 #     else:
@@ -1292,11 +1307,11 @@ def Run_meas(self):
        
 def SAVING(path,a):
     from docx import Document
-    from docx.shared import Pt
-    from docx.shared import Length
-    from docx.shared import RGBColor
-    from docx.enum.text import WD_LINE_SPACING
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    #from docx.shared import Pt
+    #from docx.shared import Length
+    #from docx.shared import RGBColor
+    #from docx.enum.text import WD_LINE_SPACING
+    #from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.shared import Inches
     #import matplotlib as pp
     
@@ -1627,7 +1642,7 @@ def layout(self):
     frames= tk.Label(frame_5, text=' # Frames:           ', height = 1, foreground= txtcolour, background=colour)
     frames.grid(row = 3, column = 0, sticky = 'wn')
     frames_01 = tk.Entry(frame_5,width = 3)
-    frames_01.insert(tk.END, '61')
+    frames_01.insert(tk.END, '11')
     frames_01.grid(row = 3, column = 1, sticky = 'w')
     
     
