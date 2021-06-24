@@ -180,42 +180,26 @@ def find_circle(data, radius_thresh_min, radius_thresh_max, distance_thresh, pix
     return x_coordinate, y_coordinate, image, thresh, gray, shifted, radius_corr, result, image_orig
     
 def Connect(self):
-    #this business with a global a is bad.
-    #I'm not sure what will break if I remove it, but it should be removed
-    #global a
-    a=0
     T = self.T
     try:
         im=specpy.Imspector()
-    except (RuntimeError):
-        a=1
-        print(a)
-        
-    if a==0:
-        print('connect')
         T.insert(tk.END, 'connection successful\n')
-    else:
-        print('disconnect')
-        T.insert(tk.END, 'connection failed\n')
-    return a
-
+    except (RuntimeError):
+        
+        T.insert(tk.END, 'connection failed\n')    
+    return
 
 def Overview(self,Multi, Pos):
-    #, path, foldername, scale_01, frame_top, T,  laser_overview_value, 
-    #laser_overview_entry, frames_overview_value, ROIsize_overview_value, 
-    #dwell_overview_value, pxsize_overview_value, circle):   
     
-    #residual / unneeded imports
-    #import time
-    #global pix_data #whatever this is, it should not be global
-    
-    #some directory is made or re-made
-    testfolder = os.path.join(self.dataout,self.foldername)
-    if os.path.exists(testfolder) == False:
-        os.makedirs(testfolder)    
-    else:
-        shutil.rmtree(testfolder)#(D:/current data/testfolder')
-        os.makedirs(testfolder)
+# =============================================================================
+#     # #some directory is made or re-made
+#     # testfolder = os.path.join(self.dataout,self.foldername)
+#     # if os.path.exists(testfolder) == False:
+#     #     os.makedirs(testfolder)    
+#     # else:
+#     #     shutil.rmtree(testfolder)#(D:/current data/testfolder')
+#     #     os.makedirs(testfolder)
+# =============================================================================
     
     #get values from GUI entries
     roi_size = float(self.ROIsize_overview_value.get())*1e-06          # in meter
@@ -341,33 +325,7 @@ def Overview(self,Multi, Pos):
     else: #maybe we want to change this behavior
         data = r2
     #pp.imshow(data) this doesn't seem to do anything
-# =============================================================================
-#     #if these statements are never hit they can go
-#     elif datashape == (1, px_num, px_num, 1):
-#         #this is capturing some bug where the data has funky dimensions
-#         io = pix_data[0,:,:,0]
-#         pp.imshow(io)
-#         data = io
-#         print('funky data dimension found!')
-#     else:
-#         io = np.mean(pix_data, axis=3)[0] # create greyscale image object  
-#         pp.imshow(io)
-#         data = io
-#         print('funky data dimension found!')
-# =============================================================================
-    #this else statement seems unneeded
-#    else:
-#        #these if statements too
-#        if circle == 0:
-#            #path = 'C:/Users/buddeja/Desktop/GUI/'
-#            r1 =1
-#            r2 = 2
-#            data = Image.open('{}{}'.format(path,'offline_image.tiff'))
-#        elif circle == 1:
-#            #path = 'C:/Users/buddeja/Desktop/GUI/'
-#            r1 =1
-#            r2 = 2
-#            data = Image.open('{}{}'.format(path,'offline_image.tiff'))
+
     self.scale_01.config(to = np.max(data))    
            
     #display overview image, see 
@@ -1065,14 +1023,6 @@ def pinholeseries(pinholevector, laser):
  
 
 def Run_meas(self):
-    #pixelsize, Roisize, dwelltime, frame_number, act485, act518, act561, 
-    #act640, act595, act775, act485_02, act518_02, act561_02, act640_02, 
-    #act595_02, act775_02, act_Autofocus, act_QFS,L485_value_01,L518_value_01,
-    #L561_value_01, L640_value_01, L595_value_01, L775_value_01, T, mm, Pos, pixelsize_global):
-    #this function needs x_roi_size and y_roi_size, which where global before
-    #aliasses for class variables are given here, it is cleaner to implement 
-    #them everywhere, but I don't want to do that now.
-    #work in progress to debug abd clean this functions.
     Multi = self.multirun
     Pos = self.y_coarse_offset
     pixelsize = self.pxsize.get()
@@ -1148,20 +1098,12 @@ def Run_meas(self):
     detector4= True
             
        ####################################################################################
-     
-    # seems like debree       
-    # T.delete('1.0', tk.END) 
-    # T.insert(tk.END, 'L485',self.L485_value.get())
             
         
     linesteps = [False, False, False, False, False, False, False, False]
     for i in range(number_linesteps):
         linesteps[i] = True
             
-        #M_obj= im.measurement(im.measurement_names()[0])
-    #if a==0:
-    #import math
-    #import time
     
     im = specpy.Imspector() 
     d = im.active_measurement()
@@ -1172,21 +1114,11 @@ def Run_meas(self):
 #        time.sleep(2) 
 #        M_obj.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
         
-     #another global variable  section, it may trigger when no peaks have been found           
-# =============================================================================
-#     if CO ==1 :
-#         print('failed')
-#         save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', 0)
-#         os.makedirs(save_path)  
-#         (im.measurement(im.measurement_names()[1])).save_as('{}{}{}{}{}'.format(save_path,'/','Overview_', Pos,'.msr'))
-#         im.close(im.measurement(im.measurement_names()[1]))
-#     else:
-# =============================================================================
     x_global_offset = M_obj.parameters('ExpControl/scan/range/x/off')
     y_global_offset = M_obj.parameters('ExpControl/scan/range/y/off')
     try:
-        x_roi_new = self.roi_xs # np.loadtxt('D:/current data/x_transfer.dat') - x_global_offset
-        y_roi_new = self.roi_ys # np.loadtxt('D:/current data/y_transfer.dat') - y_global_offset
+        x_roi_new = self.roi_xs set
+        y_roi_new = self.roi_ys 
     except RecursionError:
         self.T.insert(tk.END, 'no peaks positions in memory')
         raise RecursionError
@@ -1253,56 +1185,30 @@ def Run_meas(self):
          [False, False, False, False],
          [False, False, False, False],
          [False, False, False, False]])
-    
-
-          #### # c.set_parameters('{}{}{}'.format('ExpControl/lasers/pinholeseries'), ii)
            
 
         im.run(M_obj)
         time.sleep(time_wait) 
                 
-    #I don't know what this is supposed to do
-    if Multi ==0:
-        raise NotImplementedError
-# =============================================================================
-#             save_path = '{}{}{}'.format('D:/current data/','Overview','.msr')
-#             (im.measurement(im.measurement_names()[0])).save_as(save_path)
-#             im.close(im.measurement(im.measurement_names()[0])) 
-#             files = os.listdir('D:/current data/')
-#             files_txt = [i for i in files if i.endswith('.ptu')]
-#             n_files_txt = len(files_txt)
-#                 
-#             for ii in range(n_files_txt):
-#                 new_path = '{}{}{}{}'.format('D:/current data/testfolder/ptu_files/','measurement_',ii,'.ptu')
-#                 os.rename('{}{}'.format('D:/current data/',files_txt[ii]), '{}{}{}{}{}'.format('D:/current data/','Overview_','spot_', ii, '.ptu'))
-# =============================================================================
-
-    else:
-        #save_path = '{}{}{}{}{}'.format('D:/current data/','Overview_',Pos,'_numberSPOTS_', self.number_peaks)
-        msrout = os.path.join(save_path, 'Overview%.2f.msr' % Pos)
-        im.measurement(im.measurement_names()[1]).save_as(msrout)
-         
-        files = os.listdir('D:/current data/')
-        files_ptu = [i for i in files if i.endswith('.ptu')]
-        files_dat = [i for i in files if i.endswith('.dat')]
+    #save msr file, move files to subfolder
+    msrout = os.path.join(save_path, 'Overview%.2f.msr' % Pos)
+    im.measurement(im.measurement_names()[1]).save_as(msrout)
+     
+    files = os.listdir('D:/current data/')
+    files_ptu = [i for i in files if i.endswith('.ptu')]
+    files_dat = [i for i in files if i.endswith('.dat')]
+    
+    n_files_ptu = len(files_ptu)
+    n_files_dat = len(files_dat)
         
-        n_files_ptu = len(files_ptu)
-        n_files_dat = len(files_dat)
-            
-        for ii in range(n_files_ptu):
-            os.rename('{}{}'.format('D:/current data/',files_ptu[ii]), \
-                      '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', ii, '.ptu'))
-        
-        for ii in range(n_files_dat):
-            os.rename('{}{}'.format('D:/current data/',files_dat[ii]), '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', files_dat[ii],'.dat'))
-            
-# =============================================================================
-#     else:
-#         print('Multirun not available! No connection')
-#         save_path = 'D:/current data/'
-#         print(save_path)
-#             
-# =============================================================================
+    for ii in range(n_files_ptu):
+        os.rename('{}{}'.format('D:/current data/',files_ptu[ii]), \
+                  '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', ii, '.ptu'))
+    
+    for ii in range(n_files_dat):
+        os.rename('{}{}'.format('D:/current data/',files_dat[ii]), \
+                  '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, \
+                                          '_spot_', files_dat[ii],'.dat'))
     return save_path
        
 def SAVING(path,a):
@@ -1487,9 +1393,6 @@ def layout(self):
     #this seems to have no function, but it causes trouble
     labtext_1 = tk.Frame(frame_top4,width = 300, height = 200,bg = colour)
     labtext_1.grid()
-    
-    #button1 = tk.Button(frame_top4, width = 10,            text = 'Connect')
-    #button1.grid()
     
     
     T = tk.Text(frame_top4, height=10, width=37)
@@ -1804,7 +1707,6 @@ def layout(self):
     self.frame_6 = frame_6#Shouldn't need
     self.frame_7 = frame_7 # shouldn't need
     self.frame_8 = frame_8 # shouldn't need
-    #self.a = a # this a thing should not be needed, it is not well implemented
     self.color = colour # move to american spelling # shouldn't need
 
     self.pxsize = pxsize_01
