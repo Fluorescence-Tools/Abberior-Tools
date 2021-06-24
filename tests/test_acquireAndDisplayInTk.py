@@ -39,6 +39,7 @@ label.pack()
 master.mainloop()
 #%%
 from pprint import pprint
+im = specpy.Imspector()
 meas = im.active_measurement()
 pprint(meas.parameters())
-xy_data = [np.sum(meas.stack(i).data(), axis = (0, 1)) for i in range(4)]
+#xy_data = [np.sum(meas.stack(i).data(), axis = (0, 1)) for i in range(4)]
