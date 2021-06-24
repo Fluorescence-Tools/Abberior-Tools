@@ -44,9 +44,10 @@ import time
 # Create main graphical interface
 
 #frame_topleft, frame_top2, frame_topright, frame_top4, labtext_1, T, frame_spacer_01,frame_5, frame_6, frame_7, frame_8, a, colour, foldername, pxsize_01,ROIsize_01, dwell_01, frames_01, var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15, L485_value_01,L518_value_01,L561_value_01, L640_value_01, L595_value_01, L775_value_01, MultiRUN_01,  laser_overview_value, laser_overview_entry, frames_overview_value,ROIsize_overview_value, dwell_overview_value, pxsize_overview_value = func.layout(path, root)
-class AbberiorGUI(tk.Tk):
+class AbberiorControl(tk.Tk):
     def __init__(self, parent, dataout, *args, **kwargs):
         #tk.Frame.__init__(self, parent, *args, **kwargs)
+        self.abort_run = False
         self.parent = parent
         self.dataout = dataout #don't need in principle
         self.make_layout()
@@ -55,8 +56,8 @@ class AbberiorGUI(tk.Tk):
         button_2 = tk.Button(self.frame_buttons, width = 9,             text = 'Overview', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(self.Overview,0,0), anchor = 'w').grid(row = 0, column = 1)
         # button_3 = tk.Button(self.frame_buttons, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Findpeak                              , state = tk.DISABLED).grid(row = 0,column = 2)
         button_4 = tk.Button(self.frame_buttons, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(self.Run_meas,0,0)                 ).grid(row = 0, column = 3)
-        # button_5 = tk.Button(self.frame_buttons, width = 10,height =1,  text = 'Set value',activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = SET_VALUE                             ).grid(row = 1, column = 0)
-        # button_6 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'Power',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = powerseries                           , state = tk.DISABLED).grid(row = 1, column = 1)
+        button_5 = tk.Button(self.frame_buttons, width = 10,height =1,  text = 'Abort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Abort                            ).grid(row = 1, column = 0)
+        button_6 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'resetAbort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.reset_abort                           ).grid(row = 1, column = 1)
         # button_7 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'Pinhole',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = pinholeseries                         , state = tk.DISABLED).grid(row = 1, column = 2)
         button_8 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.MultiRun_meas                         ).grid(row = 1, column = 3)
 
@@ -105,19 +106,11 @@ class AbberiorGUI(tk.Tk):
         self.Findpeak() #findpeak is currently  a dummy setting 10 random numbers
     def Run_meas(self, Multi, Pos):
         self.y_coarse_offset = 0
-        func.Run_meas(self)
+        func._Run_meas(self)
     def MultiRun_meas(self):
 
         runs = int(self.multirun.get()) ### define the number of Rois you want to scan
-       
-        #z_position =  5e-08 #float(pixelsize)*1e-09         # in meter
-        #x_pixelsize = float(pixelsize)*1e-09        # in meter
-        #y_pixelsize = float(pixelsize)*1e-09        # in meter
-        #z_pixelsize = float(pixelsize)*1e-09        # in meter
         roisize  =    float(self.ROIsize.get())*1e-06            # in meter    
-        #Dwelltime= float(dwelltime)*1e-06         # in seconds 
-        #number_frames = float(frame_number)                                
-        #time_wait = 1
     
         #this re-connection is not needed in principle
         im = specpy.Imspector()
@@ -131,10 +124,15 @@ class AbberiorGUI(tk.Tk):
             self.Findpeak()
             #time.sleep(1)
             self.Run_meas(1,i) ### 1 = TRUE for MUltirun
-            
+            if self.abort_run:
+                break
             #print('sample=',y_add,'#peaks=',number_peaks_new, 'timewait=',(time_wait * number_peaks_new +1))
             #func.SAVING(save_path, a)
             im.close(im.measurement(im.measurement_names()[1]))
+    def Abort(self):
+        self.abort_run = True
+    def reset_abort(self):
+        self.abort_run = False
 
 
 
@@ -243,5 +241,5 @@ class AbberiorGUI(tk.Tk):
 #Type here the directory of GUI python file is stored: path = 'C:/Users/Abberior_admin/Desktop/GUI/'
 dataout = r'D:\current data' 
 root= tk.Tk()
-abberiorGUI = AbberiorGUI(root, dataout)#.pack(side="top", fill="both", expand=True)
+abberiorControl = AbberiorControl(root, dataout)#.pack(side="top", fill="both", expand=True)
 root.mainloop()

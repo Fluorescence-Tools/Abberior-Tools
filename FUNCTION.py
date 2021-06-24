@@ -42,6 +42,8 @@ import matplotlib.cm as cm
 import tkinter as tk
 import time
 from datetime import datetime
+import threading  
+
 
 #imports used by Findpeak module
 from sklearn.neighbors import NearestNeighbors
@@ -85,101 +87,103 @@ def SSS(scale_03_value):
 # =============================================================================
     
     
-def find_circle(data, radius_thresh_min, radius_thresh_max, distance_thresh, pixelsize_global):
-  
-    # load the image and perform pyramid mean shift filtering
-    # to aid the thresholding step
-    
-    #image_ini = cv2.imread(path)
-    #image = image_ini#[100:300, 200:600]
-    image_ini = data
-    image = np.array(image_ini)
-    image = np.stack((image, image, image), axis = 2)
-    image_orig = image_ini
-    print(np.shape(image_ini))
-    print(np.shape(image))
-    image = image.astype('uint8')
-    shifted = cv2.pyrMeanShiftFiltering(image, 0,0)
-    gray = cv2.cvtColor(shifted, cv2.COLOR_BGR2GRAY)
-    gray = cv2.GaussianBlur(gray, (3, 3), 0)
-    thresh = cv2.threshold(gray, 0, 255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-
-    #pp.imshow(thresh)
-
-    D = ndimage.distance_transform_edt(thresh)
-    localMax = peak_local_max(D, indices=True, min_distance=distance_thresh,labels=thresh)
-    localMax_02 = peak_local_max(D, indices=False, min_distance=distance_thresh,labels=thresh)
-    y_coord = localMax[:, 0]
-    x_coord = localMax[:, 1]
-    markers = ndimage.label(localMax_02, structure=np.ones((3, 3)))[0]
-    labels = watershed(-D, markers, mask=thresh)
-
-
-    #loop over the unique labels returned by the Watershed
-    #algorithm
-
-    label = max(np.unique(labels))
-    result = np.zeros([label, 3])
-    for label in np.unique(labels):
-        # if the label is zero, we are examining the 'background'
-        # so simply ignore it
-        if label == 0:
-                continue
-        # otherwise, allocate memory for the label region and draw
-        # it on the mask
-
-        else:
-                mask = np.zeros(gray.shape, dtype="uint8")
-                mask[labels == label] = 255
-        # detect contours in the mask and grab the largest one
-                cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                cnts = imutils.grab_contours(cnts)
-                c = max(cnts, key=cv2.contourArea)
-
-        # draw a circle enclosing the object
-                ((x, y), radius) = cv2.minEnclosingCircle(c)
-            
-                if radius < radius_thresh_min:
-                    continue
-                elif radius > radius_thresh_max:
-                    continue
-                else:
-                    cv2.circle(image, (int(x), int(y)), int(radius), (255,0,0), 1, lineType=200)
-                    #cv2.putText(image, "#{}".format(label), (int(x) - 10, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                    result[label-1,0] = radius
-                    result[label-1,1] = x
-                    result[label-1,2] = y
-
-
-
-    radius_corr = []    
-    xcoord_corr = []
-    ycoord_corr = []
-
-    for ii in range(len(result)):
-
-            if result[:,0][ii]<radius_thresh_min:
-                continue
-                
-            elif result[:,0][ii]>radius_thresh_max:
-                continue
-                
-            else:
-                radius_corr.append(result[ii,0])
-                xcoord_corr.append(result[ii,1])
-                ycoord_corr.append(result[ii,2])
-
-
-    print("[INFO] {} unique segments found".format(len(np.unique(labels)) - 1))            
-    print("[INFO] {} unique segments deleted".format(len(np.unique(labels))-len(radius_corr)-1))
-    print("[INFO] {} unique segments identified".format(len(radius_corr)))
-
-
-
-    x_coordinate =  xcoord_corr 
-    y_coordinate =  ycoord_corr
-
-    return x_coordinate, y_coordinate, image, thresh, gray, shifted, radius_corr, result, image_orig
+# =============================================================================
+# def find_circle(data, radius_thresh_min, radius_thresh_max, distance_thresh, pixelsize_global):
+#   
+#     # load the image and perform pyramid mean shift filtering
+#     # to aid the thresholding step
+#     
+#     #image_ini = cv2.imread(path)
+#     #image = image_ini#[100:300, 200:600]
+#     image_ini = data
+#     image = np.array(image_ini)
+#     image = np.stack((image, image, image), axis = 2)
+#     image_orig = image_ini
+#     print(np.shape(image_ini))
+#     print(np.shape(image))
+#     image = image.astype('uint8')
+#     shifted = cv2.pyrMeanShiftFiltering(image, 0,0)
+#     gray = cv2.cvtColor(shifted, cv2.COLOR_BGR2GRAY)
+#     gray = cv2.GaussianBlur(gray, (3, 3), 0)
+#     thresh = cv2.threshold(gray, 0, 255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+# 
+#     #pp.imshow(thresh)
+# 
+#     D = ndimage.distance_transform_edt(thresh)
+#     localMax = peak_local_max(D, indices=True, min_distance=distance_thresh,labels=thresh)
+#     localMax_02 = peak_local_max(D, indices=False, min_distance=distance_thresh,labels=thresh)
+#     y_coord = localMax[:, 0]
+#     x_coord = localMax[:, 1]
+#     markers = ndimage.label(localMax_02, structure=np.ones((3, 3)))[0]
+#     labels = watershed(-D, markers, mask=thresh)
+# 
+# 
+#     #loop over the unique labels returned by the Watershed
+#     #algorithm
+# 
+#     label = max(np.unique(labels))
+#     result = np.zeros([label, 3])
+#     for label in np.unique(labels):
+#         # if the label is zero, we are examining the 'background'
+#         # so simply ignore it
+#         if label == 0:
+#                 continue
+#         # otherwise, allocate memory for the label region and draw
+#         # it on the mask
+# 
+#         else:
+#                 mask = np.zeros(gray.shape, dtype="uint8")
+#                 mask[labels == label] = 255
+#         # detect contours in the mask and grab the largest one
+#                 cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+#                 cnts = imutils.grab_contours(cnts)
+#                 c = max(cnts, key=cv2.contourArea)
+# 
+#         # draw a circle enclosing the object
+#                 ((x, y), radius) = cv2.minEnclosingCircle(c)
+#             
+#                 if radius < radius_thresh_min:
+#                     continue
+#                 elif radius > radius_thresh_max:
+#                     continue
+#                 else:
+#                     cv2.circle(image, (int(x), int(y)), int(radius), (255,0,0), 1, lineType=200)
+#                     #cv2.putText(image, "#{}".format(label), (int(x) - 10, int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+#                     result[label-1,0] = radius
+#                     result[label-1,1] = x
+#                     result[label-1,2] = y
+# 
+# 
+# 
+#     radius_corr = []    
+#     xcoord_corr = []
+#     ycoord_corr = []
+# 
+#     for ii in range(len(result)):
+# 
+#             if result[:,0][ii]<radius_thresh_min:
+#                 continue
+#                 
+#             elif result[:,0][ii]>radius_thresh_max:
+#                 continue
+#                 
+#             else:
+#                 radius_corr.append(result[ii,0])
+#                 xcoord_corr.append(result[ii,1])
+#                 ycoord_corr.append(result[ii,2])
+# 
+# 
+#     print("[INFO] {} unique segments found".format(len(np.unique(labels)) - 1))            
+#     print("[INFO] {} unique segments deleted".format(len(np.unique(labels))-len(radius_corr)-1))
+#     print("[INFO] {} unique segments identified".format(len(radius_corr)))
+# 
+# 
+# 
+#     x_coordinate =  xcoord_corr 
+#     y_coordinate =  ycoord_corr
+# 
+#     return x_coordinate, y_coordinate, image, thresh, gray, shifted, radius_corr, result, image_orig
+# =============================================================================
     
 def Connect(self):
     T = self.T
@@ -343,7 +347,7 @@ def Overview(self,Multi, Pos):
     label.image = photoTk
     label.grid(row=0)
     self.T.delete('1.0', tk.END) 
-    self.T.insert(tk.END, "Overview created") 
+    self.T.insert(tk.END, "Overview created\n") 
     return data, roi_size, r1, r2, x_pixelsize
   
 def setDefaultMeasurementSettings(meas):
@@ -1022,7 +1026,11 @@ def pinholeseries(pinholevector, laser):
     pp.xscale('log')
 
     
- 
+def _Run_meas(*args):  
+    """this function splits off Run meas into a separate thread, such
+    that the GUI remains responsive and the run may be aborted"""
+    thread = threading.Thread(target=Run_meas, args = args)  
+    thread.start()  
 
 def Run_meas(self):
     Multi = self.multirun
@@ -1119,7 +1127,7 @@ def Run_meas(self):
     x_global_offset = M_obj.parameters('ExpControl/scan/range/x/off')
     y_global_offset = M_obj.parameters('ExpControl/scan/range/y/off')
     try:
-        x_roi_new = self.roi_xs set
+        x_roi_new = self.roi_xs
         y_roi_new = self.roi_ys 
     except RecursionError:
         self.T.insert(tk.END, 'no peaks positions in memory')
@@ -1128,7 +1136,10 @@ def Run_meas(self):
     dateTimeObj = datetime.now()
     timestamp = dateTimeObj.strftime("%Y-%b-%d-%H-%M-%S")
     save_path = os.path.join(self.dataout, timestamp + 'Overview_%.2f_numberSPOTS_%i' % (Pos, self.number_peaks))
-    os.makedirs(save_path)  
+    try:
+        os.mkdir(save_path)
+    except FileExistsError:
+        self.T.insert(tk.END, 'saving directory already exists, skipping')
     for i in range(x_roi_new.size):
         x_position = x_roi_new[i]
         y_position = y_roi_new[i]
@@ -1191,6 +1202,11 @@ def Run_meas(self):
 
         im.run(M_obj)
         time.sleep(time_wait) 
+        
+        if self.abort_run:
+            self.T.insert(tk.END, 'aborting (multi-) measurement run\n')
+            self.T.insert(tk.END, 'be sure to reset abort before your next run\n')
+            break
                 
     #save msr file, move files to subfolder
     msrout = os.path.join(save_path, 'Overview%.2f.msr' % Pos)
