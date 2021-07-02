@@ -58,7 +58,7 @@ class AbberiorControl(tk.Tk):
         button_4 = tk.Button(self.frame_buttons, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(self.Run_meas,0,0)                 ).grid(row = 0, column = 3)
         button_5 = tk.Button(self.frame_buttons, width = 10,height =1,  text = 'Abort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Abort                            ).grid(row = 1, column = 0)
         button_6 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'resetAbort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.reset_abort                           ).grid(row = 1, column = 1)
-        button_7 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'timeRun',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.timerun                         , state = tk.DISABLED).grid(row = 1, column = 2)
+        button_7 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'timeRun',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.timeRun                         , state = tk.DISABLED).grid(row = 1, column = 2)
         button_8 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.MultiRun_meas                         ).grid(row = 1, column = 3)
 
         scale_01_label= tk.Label(self.frame_7, text='Thres:', height = 1,foreground= 'white', background =self.color, font = ('Sans','9','bold'))

@@ -39,7 +39,7 @@ import tkinter as tk
 import time
 from datetime import datetime
 import threading  
-
+from pprint import pprint # for debugging
 
 
     
@@ -54,6 +54,9 @@ def Connect(self):
     return
 
 def Overview(self,Multi, Pos):
+    """creates an overview image for finding suitable spots,
+    parts of this function can be replaced by calling
+    the method applyGUISettings, but this is not implemented yet"""
     
 # =============================================================================
 #     # #some directory is made or re-made
@@ -64,6 +67,7 @@ def Overview(self,Multi, Pos):
 #     #     shutil.rmtree(testfolder)#(D:/current data/testfolder')
 #     #     os.makedirs(testfolder)
 # =============================================================================
+
     
     #get values from GUI entries
     roi_size = float(self.ROIsize_overview_value.get())*1e-06          # in meter
@@ -122,20 +126,26 @@ def Overview(self,Multi, Pos):
     path = 'D:/current data/'
     im = specpy.Imspector()#re-get connection
     meas=im.create_measurement()
-           
     # overview is called multiple times to identify spot locations for the next spot.
     if Multi == 1: 
         print('MULTIRUN')
         meas.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) # current stage position in x [m]
     else:
         print('non MULTIRUN')
+    #meas.set_parameters('ExpControl/scan/range/x/len',roi_size)
+    #meas.set_parameters('ExpControl/scan/range/y/len',roi_size)
+    #meas.set_parameters('ExpControl/scan/range/z/len',0)
+    #must be set first such that settings are available?
+    meas.set_parameters('ExpControl/scan/range/mode',xyt_mode) 
 
     #a bunch of these steps are default and can be put into a helper function
-    setDefaultMeasurementSettings(meas)
-    meas.set_parameters('ExpControl/scan/range/mode',xyt_mode)
+    applyGUISettings(self, meas)
+    
     meas.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
     meas.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
     meas.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
+    #roi size is set twice, first in applyGUISettings and second time here
+    #but here with the overview dimensions, sloppy
     meas.set_parameters('ExpControl/scan/range/x/len',roi_size)
     meas.set_parameters('ExpControl/scan/range/y/len',roi_size)
     meas.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
@@ -225,6 +235,19 @@ def _Run_meas(*args):
     thread.start()  
 
 def Run_meas(self):
+    """
+    reads a list of positions attached to the class by self.roix and self.roiy
+    for each position an image if recorded according to the settings in the GUI
+    the data is saved as a ptu file, an overview image of the region is also saved
+    
+    Large portions of this function can be replaced by the method 
+    applyGUISettings. TODO
+
+    Returns
+    -------
+    None.
+
+    """
     Pos = self.y_coarse_offset
     pixelsize = self.pxsize.get()
     #values are by default read in as tring, have to convert
@@ -421,14 +444,9 @@ def run_time(self):
     #for t 1363
     xyt_mode = 784           #Type 785 for xyt mode
         #Type number of frames t in xyt mode
-    #time_wait = math.ceil((roi_size/x_pixelsize) * (roi_size/y_pixelsize)* number_frames* Dwelltime) + 1
-    #measurement time consists of line scan rate + flyback time + buffer
-    time_wait = 1
-    
-    # #Activate_Autofocus= bool(act_Autofocus)
-            
-            
         
+
+    # #Activate_Autofocus= bool(act_Autofocus)
     linesteps = [False, False, False, False, False, False, False, False]
     for i in range(number_linesteps):
         linesteps[i] = True
@@ -509,7 +527,11 @@ def run_time(self):
         c.set_parameters('ExpControl/scan/range/mode',xyt_mode)
 
         im.run(M_obj)
-        time.sleep(time_wait) 
+        #this should not be needed, untested.
+        #time_wait = math.ceil((roi_size/x_pixelsize) * (roi_size/y_pixelsize)* number_frames* Dwelltime) + 1
+        #measurement time consists of line scan rate + flyback time + buffer
+        #time_wait = 1
+        #time.sleep(time_wait) 
         
         if self.abort_run:
             self.T.insert(tk.END, 'aborting (multi-) measurement run\n')
@@ -537,7 +559,7 @@ def run_time(self):
                                           '_spot_', files_dat[ii],'.dat'))
     return save_path
 
-def applyGUISettings(self,meas, 
+def applyGUISettings(self, meas, 
                         enableStream = False, 
                         stream = 'HydraHarp'):
     """for most of the measurement a lot of settings are default, they are set
@@ -545,7 +567,7 @@ def applyGUISettings(self,meas,
     assert stream == 'HydraHarp' or stream == 'fpga', 'bad stream value'
     #read-out GUI values in SI units
     Dwelltime= float(self.dwelltime.get())*1e-06         # in seconds
-    pixelsize = float(self.pxsize.get())*1e-09 # in meter
+    pixelsize = float(self.pxsize.get())*1e-09          # in meter
     roi_size =    float(self.ROIsize.get())*1e-06            # in meter
     LP485 = float(self.L485_value.get()) # in %
     LP518 = float(self.L518_value.get())
@@ -570,7 +592,6 @@ def applyGUISettings(self,meas,
     meas.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
     meas.set_parameters('HydraHarp/data/streaming/enable', enableStream)
     meas.set_parameters('HydraHarp/is_active', True) #not sure what this does
-    meas.set_parameters('ExpControl/scan/range/z/len',0)
     meas.set_parameters('Pinhole/pinhole_size', 10e-5)
     
     meas.set_parameters('ExpControl/scan/range/x/psz',pixelsize)
@@ -578,9 +599,9 @@ def applyGUISettings(self,meas,
     #meas.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)#notImplemented
     #xy offset is set in the function
     #meas.set_parameters('ExpControl/scan/range/z/off', 1e-15)#notImplemented
-    meas.set_parameters('Expcontrol/scan/range/x/len',roi_size)
-    meas.set_parameters('Expcontrol/scan/range/y/len',roi_size)
-    meas.set_parameters('Expcontrol/scan/range/z/len',roi_size)
+    meas.set_parameters('ExpControl/scan/range/x/len',roi_size)
+    meas.set_parameters('ExpControl/scan/range/y/len',roi_size)
+    meas.set_parameters('ExpControl/scan/range/z/len',0)
     meas.set_parameters('ExpControl/scan/range/t/len', 10) # in seconds, should become button
     meas.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
     meas.set_parameters('ExpControl/scan/range/t/psz', Dwelltime)
@@ -597,10 +618,10 @@ def applyGUISettings(self,meas,
     meas.set_parameters('ExpControl/gating/linesteps/chans_enabled',[True, True, True, True])
     meas.set_parameters('ExpControl/gating/pulses/pulse_chan/delay',[0.0, 0.0, 0.0, 0.0]) # not sure if needed
     meas.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
-    meas.set_parameters('Expcontrol/lasers/power_calibrated/0/value/calibrated', float(LP485))
-    meas.set_parameters('Expcontrol/lasers/power_calibrated/2/value/calibrated', float(LP518))
-    meas.set_parameters('Expcontrol/lasers/power_calibrated/3/value/calibrated', float(LP561))
-    meas.set_parameters('Expcontrol/lasers/power_calibrated/4/value/calibrated', float(LP640))
+    meas.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', float(LP485))
+    meas.set_parameters('ExpControl/lasers/power_calibrated/2/value/calibrated', float(LP518))
+    meas.set_parameters('ExpControl/lasers/power_calibrated/3/value/calibrated', float(LP561))
+    meas.set_parameters('ExpControl/lasers/power_calibrated/4/value/calibrated', float(LP640))
     meas.set_parameters('ExpControl/lasers/power_calibrated/5/value/calibrated', float(LP775))
     meas.set_parameters('ExpControl/gating/linesteps/chans_enabled',[True] * 4)
     meas.set_parameters('ExpControl/scan/detsel/detsel',['APD1', 'APD2', 'APD3', 'APD4'])
