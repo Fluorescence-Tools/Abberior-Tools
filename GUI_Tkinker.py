@@ -19,7 +19,9 @@ import tkinter as tk
 import specpy
 import numpy as np
 from functools import partial
+import GUIspotFinding as spotFinding
 import time
+import warnings
 #edits by NV
 #this code has numerous serious issues
 #it works, but it contains several features that are considered bad practice
@@ -54,7 +56,7 @@ class AbberiorControl(tk.Tk):
         self.foldername = 'testfolder' # why is this needed?
         button_1 = tk.Button(self.frame_buttons, width = 10,            text = 'Connect',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Connect,anchor = 'w'                  ).grid(row = 0, column = 0)
         button_2 = tk.Button(self.frame_buttons, width = 9,             text = 'Overview', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(self.Overview,0,0), anchor = 'w').grid(row = 0, column = 1)
-        # button_3 = tk.Button(self.frame_buttons, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = Findpeak                              , state = tk.DISABLED).grid(row = 0,column = 2)
+        button_3 = tk.Button(self.frame_buttons, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Findpeak                              , state = tk.DISABLED).grid(row = 0,column = 2)
         button_4 = tk.Button(self.frame_buttons, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(self.Run_meas,0,0)                 ).grid(row = 0, column = 3)
         button_5 = tk.Button(self.frame_buttons, width = 10,height =1,  text = 'Abort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Abort                            ).grid(row = 1, column = 0)
         button_6 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'resetAbort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.reset_abort                           ).grid(row = 1, column = 1)
@@ -70,7 +72,7 @@ class AbberiorControl(tk.Tk):
         scale_01.grid(row = 1, column = 0, sticky = tk.W+tk.N)
         self.scale_01 = scale_01
         
-        scale_02_label= tk.Label(self.frame_7, text='Rmin:', height = 1,\
+        scale_02_label= tk.Label(self.frame_7, text='minarea:', height = 1,\
                                  foreground= 'white', background =self.color,\
                                      font = ('Sans','9','bold'))
         scale_02_label.grid(row = 0, column = 1, sticky = tk.W+tk.N)
@@ -81,7 +83,7 @@ class AbberiorControl(tk.Tk):
         scale_02.grid(row = 1, column = 1, sticky = tk.W+tk.N)
         self.scale_02 = scale_02
         
-        scale_03_label= tk.Label(self.frame_7, text='Rmax:', height = 1,\
+        scale_03_label= tk.Label(self.frame_7, text='Rmin:', height = 1,\
                                  foreground= 'white', background =self.color, \
                                      font = ('Sans','9','bold') )
         scale_03_label.grid(row = 0, column = 2, sticky = tk.W+tk.N)
@@ -99,11 +101,21 @@ class AbberiorControl(tk.Tk):
     def Overview(self,Multi, Pos):
         func.Overview(self, Multi, Pos)
     def Findpeak(self): # alias
-        func.Findpeak(self)
+        warnings.warn('Finding peaks currently for ch0+ch2, do you want this?')
+        image = self.xy_data[0] + self.xy_data[2]
+        self.allpeaks, self.smoothimage = spotFinding.findPeaks(image, smooth_sigma = 1)     
+        
     def RELEASE(self, scaleval):
         #when binding this function to a scale release, automatically the value is passed
         #it is given this scaleval dummy to avoid an error
-        self.Findpeak() #findpeak is currently  a dummy setting 10 random numbers
+        #self.Findpeak() #findpeak is currently  a dummy setting 10 random numbers
+        bglevel = int(self.scale_01.get())
+        minarea = int(self.scale_02.get())
+        Rmin = int(self.scale_03.get())
+        goodpeaks = spotFinding.filterPeaks(self.smoothimage, self.allpeaks, \
+                                bglevel, minarea, Rmin)
+        self.roi_x = goodpeaks[:,0]
+        self.roi_y = goodpeaks[:,1]
     def Run_meas(self, Multi, Pos):
         self.y_coarse_offset = 0
         func._Run_meas(self)
