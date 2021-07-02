@@ -66,14 +66,14 @@ def smooth_image(im, sigma = 1):
     """this function has been yanked from FindPeaksLib in FRC too"""
     return gaussian_filter(im.astype(np.double), sigma)
 
-def filterjunk(image, peaks, minflowlevel = 20, bglevel = 2,
+def filterjunk(image, peaks, minarea = 20, bglevel = 2,
                 return_diagnostics = False):
     #get the flowarea per peak and apply threshold
     peaks0, counts = np.unique(peaks, return_counts = True, axis = 0)
     #peaks0 = peaks0[counts>minflowlevel]
     #get the values per peak and apply threshold
     vals = image[tuple(peaks0.T)] #indexing wants a tuple for future safety
-    good = np.logical_and(vals > bglevel, counts > minflowlevel)
+    good = np.logical_and(vals > bglevel, counts > minarea)
     peaks0 = peaks0[good]
     if return_diagnostics:
         res = [peaks0, counts[good], vals[good]]
@@ -87,9 +87,7 @@ def filterRmin(peaks, Rmin):
     goodpeaks = []
     for i, peak in enumerate(peaks):
         # need to exclude testing with self
-        print(i)
         to_test = np.concatenate((peaks[:i], peaks[i+1:]))
-        print(to_test.shape)
         distances = np.linalg.norm(to_test - peak, axis = 1)
         if (distances > Rmin).all():
             goodpeaks.append(peak)
@@ -112,17 +110,18 @@ def findPeaks(data, smooth_sigma = 1):
     peaks = findMaxima(data)
     return peaks, data
 import time
-def filterPeaks(image, peaks, minflowarea = 50, bglevel = 5, Rmin = 10):
+def filterPeaks(image, peaks, bglevel = 5, minarea = 50, Rmin = 10):
     """this function currently print the plot of the peaks, but it should print
     to the display of the GUI.
     Also it should save the selected peaks in a sensible way: both the image and
     the coordinates"""
     reportdir = r'D:\current data\peak_overviews' 
     goodpeaks, counts, vals = filterjunk(image, peaks, \
-                                          minflowarea = minflowarea,\
+                                          minarea = minarea,\
                                           bglevel = bglevel, 
                                           return_diagnostics = True)
     ggoodpeaks = filterRmin(goodpeaks, Rmin)
     plotpeaks(image, ggoodpeaks)
     plt.savefig(os.path.join(reportdir, '%i_time_overview.png' % time.time()), bbox_inches = 'tight', dpi = 600)
+    plt.show()
     return ggoodpeaks, counts, vals

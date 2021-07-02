@@ -4,13 +4,14 @@ Created on Sun Jun 20 14:10:34 2021
 
 @author: Abberior_admin
 """
+#%%
 import tkinter as tk
 import matplotlib.cm as cm
 from PIL import Image, ImageTk
 import specpy
 import sys
 sys.path.append(r'C:\Users\Abberior_admin\Desktop\Abberior-Tools')
-from FUNCTION import setDefaultMeasurementSettings
+#from FUNCTION import setDefaultMeasurementSettings
 import matplotlib.pyplot as plt
 import numpy as np
 #%%
@@ -41,5 +42,5 @@ master.mainloop()
 from pprint import pprint
 im = specpy.Imspector()
 meas = im.active_measurement()
-pprint(meas.parameters())
+pprint(meas.parameters("ExpControl/scan"))
 #xy_data = [np.sum(meas.stack(i).data(), axis = (0, 1)) for i in range(4)]
