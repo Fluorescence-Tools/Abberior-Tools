@@ -40,6 +40,8 @@ import time
 from datetime import datetime
 import threading  
 from pprint import pprint # for debugging
+import plotTrace # homebuild to plot recorded t-traces
+import GUISpotFinding as spotFinding
 
 
     
@@ -57,16 +59,6 @@ def Overview(self,Multi, Pos):
     """creates an overview image for finding suitable spots,
     parts of this function can be replaced by calling
     the method applyGUISettings, but this is not implemented yet"""
-    
-# =============================================================================
-#     # #some directory is made or re-made
-#     # testfolder = os.path.join(self.dataout,self.foldername)
-#     # if os.path.exists(testfolder) == False:
-#     #     os.makedirs(testfolder)    
-#     # else:
-#     #     shutil.rmtree(testfolder)#(D:/current data/testfolder')
-#     #     os.makedirs(testfolder)
-# =============================================================================
 
     
     #get values from GUI entries
@@ -201,7 +193,7 @@ def Overview(self,Multi, Pos):
         data = r2
     #pp.imshow(data) this doesn't seem to do anything
 
-    self.scale_01.config(to = np.max(data)*10)    
+        
            
     #display overview image, see 
     #https://stackoverflow.com/questions/10965417/how-to-convert-a-numpy-array-to-pil-image-applying-matplotlib-colormap
@@ -359,6 +351,8 @@ def Run_meas(self):
         M_obj.clone(d.active_configuration())
         M_obj.activate(M_obj.configuration(i))          
         c = M_obj.configuration(i)
+        #this does not work, need to do this cloning business
+        # c = im.create_measurement()
         
         c.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
         c.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
@@ -434,25 +428,26 @@ def Run_meas(self):
                                           '_spot_', files_dat[ii],'.dat'))
     return save_path
 
+def _timeRun(*args):  
+    """this function splits off Run meas into a separate thread, such
+    that the GUI remains responsive and the run may be aborted"""
+    thread = threading.Thread(target=timeRun, args = args)  
+    thread.start()  
 def timeRun(self):
     Pos = self.y_coarse_offset
     #values are by default read in as tring, have to convert
     pixelsize = float(self.pxsize_overview_value.get()) * 1e-9
-    # for xyt mode  784
-    #for xyz_mode 528
-    #for t 1363
-    xyt_mode = 1363           #Type 785 for xyt mode
-        
+    # #Activate_Autofocus= bool(act_Autofocus)   
 
-    # #Activate_Autofocus= bool(act_Autofocus)            
+    # I don't understand why this is needed, or how it works,
+    #but removing it causes strange behaviour         
     im = specpy.Imspector() 
-    
-
-             
+    d = im.active_measurement()
+    msr = im.measurement(d.name()) 
 #    if Activate_Autofocus == True: #Activate_Autofocus
-#        M_obj.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', False)
+#        config.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', False)
 #        time.sleep(2) 
-#        M_obj.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
+#        config.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
 
     try:
         x_roi_new = self.roi_xs
@@ -460,67 +455,91 @@ def timeRun(self):
     except RecursionError:
         self.T.insert(tk.END, 'no peaks positions in memory')
         raise RecursionError
+        
+    #save the overview image and to be imaged spots
+    spotFinding.plotpeaks(self.smoothimage, self.goodpeaks,\
+                          savedir = self.dataout, isshow = True)
+
+    for i in range(x_roi_new.size):
+        print("analysing spot %i out of %i" % (i, len(x_roi_new)))
+        x_position = x_roi_new[i]
+        y_position = y_roi_new[i]
+        d = im.active_measurement()
+        msr.clone(d.active_configuration())
+        # the last config name corresponds to the newest configuration
+        config_name = msr.configuration_names()[-1]
+        config = msr.configuration(config_name)
+        msr.activate(config)          
+        applyLaserSettings(self, config)
+        #config.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', 5)
+        #config.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, False, False, True, False, False, False, False])
+        # for xyt mode  784    #for xyz_mode 528    #for t 1363
+        config.set_parameters('ExpControl/scan/range/mode',1363)
+        config.set_parameters('ExpControl/scan/range/t/len', 5)
+        stream = 'HydraHarp'
+        config.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize )
+        config.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize )
+        config.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0) 
+        config.set_parameters('ExpControl/gating/tcspc/channels/0/stream', stream)
+        config.set_parameters('ExpControl/gating/tcspc/channels/1/mode', 0)
+        config.set_parameters('ExpControl/gating/tcspc/channels/1/stream', stream)
+        config.set_parameters('ExpControl/gating/tcspc/channels/2/mode', 0)
+        config.set_parameters('ExpControl/gating/tcspc/channels/2/stream', stream)
+        config.set_parameters('ExpControl/gating/tcspc/channels/3/mode', 0)
+        config.set_parameters('ExpControl/gating/tcspc/channels/3/stream', stream)
+        config.set_parameters('HydraHarp/data/streaming/enable', True)
+        config.set_parameters('HydraHarp/is_active', True) #not sure what this does
+        im.run(msr)
+        print("finished position x %i and y %i" % (x_position, y_position))
+
+        #if by accident the integration time is really short, this
+        #should prevent the software from crashing
+        time.sleep(2) 
+        
+        
+        #plot t trace of last ptu file
+        lastfile = plotTrace.getLastModified(self.dataout)
+        channels = plotTrace.getTraces(lastfile, [0,2])
+        binneddata = plotTrace.plotTrace(channels, (0,10), lastfile, outname = 'inferred')
+
+        if self.abort_run: #not Implemented, need to split function off in seperate
+        #thread like in _run_meas
+            self.T.insert(tk.END, 'aborting (multi-) measurement run\n')
+            self.T.insert(tk.END, 'be sure to reset abort before your next run\n')
+            break
+        
     #location to save the files collected in next loop
     dateTimeObj = datetime.now()
-    timestamp = dateTimeObj.strftime("%Y-%b-%d-%H-%M-%S")
+    timestamp = dateTimeObj.strftime("%Y-%b-%d_%H-%M-%S")
     save_path = os.path.join(self.dataout, timestamp + 'Overview_%.2f_numberSPOTS_%i' % (Pos, len(self.roi_xs)))
     try:
         os.mkdir(save_path)
     except FileExistsError:
         self.T.insert(tk.END, 'saving directory already exists, skipping')
-    for i in range(x_roi_new.size):
-        x_position = x_roi_new[i]
-        y_position = y_roi_new[i]
         
-        meas = im.create_measurement()
-        applyLaserSettings(self, meas)
-        #meas.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', 5)
-        #meas.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, False, False, True, False, False, False, False])
-        meas.set_parameters('ExpControl/scan/range/mode',1363)
-        meas.set_parameters('ExpControl/scan/range/t/len', 2)
-        stream = 'HydraHarp'
-        meas.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize )
-        meas.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize )
-        meas.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0) 
-        meas.set_parameters('ExpControl/gating/tcspc/channels/0/stream', stream)
-        meas.set_parameters('ExpControl/gating/tcspc/channels/1/mode', 0)
-        meas.set_parameters('ExpControl/gating/tcspc/channels/1/stream', stream)
-        meas.set_parameters('ExpControl/gating/tcspc/channels/2/mode', 0)
-        meas.set_parameters('ExpControl/gating/tcspc/channels/2/stream', stream)
-        meas.set_parameters('ExpControl/gating/tcspc/channels/3/mode', 0)
-        meas.set_parameters('ExpControl/gating/tcspc/channels/3/stream', stream)
-        meas.set_parameters('HydraHarp/data/streaming/enable', True)
-        meas.set_parameters('HydraHarp/is_active', True) #not sure what this does
-        im.run(meas)
-        #if by accident the integration time is really short, this
-        #should prevent the software from crashing
-        print("finished position x %i and y %i" % (x_position, y_position))
-        time.sleep(2) 
-        
-        if self.abort_run:
-            self.T.insert(tk.END, 'aborting (multi-) measurement run\n')
-            self.T.insert(tk.END, 'be sure to reset abort before your next run\n')
-            break
-                
     #save msr file, move files to subfolder
     msrout = os.path.join(save_path, 'Overview%.2f.msr' % Pos)
-    im.measurement(im.measurement_names()[1]).save_as(msrout)
+    msr.save_as(msrout)
      
-    files = os.listdir('D:/current data/')
-    files_ptu = [i for i in files if i.endswith('.ptu')]
-    files_dat = [i for i in files if i.endswith('.dat')]
-    
-    n_files_ptu = len(files_ptu)
-    n_files_dat = len(files_dat)
-        
-    for ii in range(n_files_ptu):
-        os.rename('{}{}'.format('D:/current data/',files_ptu[ii]), \
-                  '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', ii, '.ptu'))
-    
-    for ii in range(n_files_dat):
-        os.rename('{}{}'.format('D:/current data/',files_dat[ii]), \
-                  '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, \
-                                          '_spot_', files_dat[ii],'.dat'))
+    #shift files to save dir
+    files = os.listdir(self.dataout)
+    extensions = ['.png', '.dat', '.ptu', '.txt', 'tiff']
+    files_selected = [i for i in files if i[-4:] in extensions]    
+    for file in files_selected:
+        source = os.path.join(self.dataout, file)
+        dest = os.path.join(save_path, file)
+        os.rename(source, dest)
+    #I don't like the renaming of spots in this way. timestamp is better
+# =============================================================================
+#     for ii in range(n_files_ptu):
+#         os.rename('{}{}'.format('D:/current data/',files_ptu[ii]), \
+#                   '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', ii, '.ptu'))
+#     
+#     for ii in range(n_files_dat):
+#         os.rename('{}{}'.format('D:/current data/',files_dat[ii]), \
+#                   '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, \
+#                                           '_spot_', files_dat[ii],'.dat'))
+# =============================================================================
     return save_path
 
 def applyGUISettings(self, meas, 
@@ -576,7 +595,7 @@ def applyGUISettings(self, meas,
     meas.set_parameters('ExpControl/scan/range/t/res',number_frames)
 
        
-def applyLaserSettings(self, meas):
+def applyLaserSettings(self, config):
     #read-out GUI values in SI units
 
     LP485 = float(self.L485_value.get()) # in %
@@ -594,15 +613,15 @@ def applyLaserSettings(self, meas):
     Activate485_02 = bool(self.L485_2)                    
     Activate518_02 = bool(self.L518_2)   
     Activate561_02 = bool(self.L561_2)   
-    Activate640_02 = bool(self.L561_2)   
+    Activate640_02 = bool(self.L640_2)   
     Activate595_02 = bool(self.L595_2)   
     Activate775_02 = bool(self.L775_2) 
-    meas.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', float(LP485))
-    meas.set_parameters('ExpControl/lasers/power_calibrated/2/value/calibrated', float(LP518))
-    meas.set_parameters('ExpControl/lasers/power_calibrated/3/value/calibrated', float(LP561))
-    meas.set_parameters('ExpControl/lasers/power_calibrated/4/value/calibrated', float(LP640))
-    meas.set_parameters('ExpControl/lasers/power_calibrated/5/value/calibrated', float(LP775))
-    meas.set_parameters('ExpControl/gating/linesteps/laser_on',[[Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
+    config.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', float(LP485))
+    config.set_parameters('ExpControl/lasers/power_calibrated/2/value/calibrated', float(LP518))
+    config.set_parameters('ExpControl/lasers/power_calibrated/3/value/calibrated', float(LP561))
+    config.set_parameters('ExpControl/lasers/power_calibrated/4/value/calibrated', float(LP640))
+    config.set_parameters('ExpControl/lasers/power_calibrated/5/value/calibrated', float(LP775))
+    config.set_parameters('ExpControl/gating/linesteps/laser_on',[[Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
          [Activate485_02, Activate518_02, Activate595_02, Activate561_02, Activate640_02, Activate775_02, False, False],
          [False]*8,[False]*8,[False]*8,[False]*8,[False]*8,[False]*8]) #the last six linesteps are not used
 def SAVING(path,a):
@@ -889,7 +908,7 @@ def layout(self):
     laser_overview= tk.Label(page1, text=' Laser| power[%]:', height = 1, foreground= txtcolour, background=colour)
     laser_overview.grid(row = 5, column = 0, sticky = 'wn')
     laser_overview_entry = tk.Entry(page1,width = 8, foreground= 'white', bg = 'grey')
-    laser_overview_entry.insert(tk.END, '640')
+    laser_overview_entry.insert(tk.END, '485')
     laser_overview_entry.grid(row = 5,column = 1, sticky = 'w') 
     
     laser_overview_value = tk.Entry(page1, width = 8, foreground= 'white', bg = 'grey')

@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from scipy.ndimage import gaussian_filter
+from datetime import datetime
 #import sys
 #sys.path.append(r'\\192.168.169.11\data\User\vanderVoortN\FRC\Code')
 #import findPeaksLib
@@ -93,11 +94,17 @@ def filterRmin(peaks, Rmin):
             goodpeaks.append(peak)
     print('filtered %i peaks' % (len(peaks) - len(goodpeaks)))
     return np.array(goodpeaks)
-def plotpeaks(image, peaks):
+def plotpeaks(image, peaks, savedir = None, isshow = False):
     plt.figure(figsize = (10,10))
     plt.imshow(image)
     plt.colorbar()
     plt.scatter(peaks[:,1], peaks[:,0], s = 5, c = 'r')
+    if savedir:
+        dateTimeObj = datetime.now()
+        timestamp = dateTimeObj.strftime("%Y-%b-%d_%H-%M-%S")
+        plt.savefig(os.path.join(savedir, timestamp + '_overview.png'),\
+                    bbox_inches = 'tight', dpi = 600)
+    if isshow: plt.show()
 def findPeaks(data, smooth_sigma = 1):
     """ finds three initial estimates for spot locations.
     First the image is smoothed.
@@ -121,7 +128,5 @@ def filterPeaks(image, peaks, bglevel = 5, minarea = 50, Rmin = 10):
                                           bglevel = bglevel, 
                                           return_diagnostics = True)
     ggoodpeaks = filterRmin(goodpeaks, Rmin)
-    plotpeaks(image, ggoodpeaks)
-    plt.savefig(os.path.join(reportdir, '%i_time_overview.png' % time.time()), bbox_inches = 'tight', dpi = 600)
-    plt.show()
+
     return ggoodpeaks, counts, vals

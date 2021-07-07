@@ -51,7 +51,7 @@ class AbberiorControl(tk.Tk):
         #tk.Frame.__init__(self, parent, *args, **kwargs)
         self.abort_run = False
         self.parent = parent
-        self.dataout = dataout #don't need in principle
+        self.dataout = dataout #used as a path for saving stuff
         self.make_layout()
         self.foldername = 'testfolder' # why is this needed?
         button_1 = tk.Button(self.frame_buttons, width = 10,            text = 'Connect',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Connect,anchor = 'w'                  ).grid(row = 0, column = 0)
@@ -102,7 +102,8 @@ class AbberiorControl(tk.Tk):
     def Findpeak(self): # alias
         warnings.warn('Finding peaks currently for ch0+ch2, do you want this?')
         image = self.xy_data[0] + self.xy_data[2]
-        self.allpeaks, self.smoothimage = spotFinding.findPeaks(image, smooth_sigma = 1)     
+        self.allpeaks, self.smoothimage = spotFinding.findPeaks(image, smooth_sigma = 1)
+        self.scale_01.config(to = np.max(self.smoothimage)*10)
         
     def RELEASE(self, scaleval):
         #when binding this function to a scale release, automatically the value is passed
@@ -113,11 +114,13 @@ class AbberiorControl(tk.Tk):
         Rmin = float(self.scale_03.get()) / 10
         goodpeaks, _, _ = spotFinding.filterPeaks(self.smoothimage, self.allpeaks, \
                                 bglevel, minarea, Rmin)
+        spotFinding.plotpeaks(self.smoothimage, goodpeaks, isshow = True)
         shape = self.smoothimage.shape
-        print(shape)
         #axis are swapped
+        self.goodpeaks = goodpeaks #too lazy to do the converting, saving both
         self.roi_xs = goodpeaks[:,1] - shape[1] / 2
         self.roi_ys = goodpeaks[:,0] - shape[0] / 2 #center of image is 0
+        
     def Run_meas(self, Multi, Pos):
         self.y_coarse_offset = 0
         func._Run_meas(self)
@@ -149,7 +152,7 @@ class AbberiorControl(tk.Tk):
         self.abort_run = False
     def timeRun(self):
         self.y_coarse_offset = 0 #to change later, badly implemented
-        func.timeRun(self)
+        func._timeRun(self)
 
 
         
