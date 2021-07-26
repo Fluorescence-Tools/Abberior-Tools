@@ -42,6 +42,7 @@ import threading
 from pprint import pprint # for debugging
 import plotTrace # homebuild to plot recorded t-traces
 import GUISpotFinding as spotFinding
+import warnings
 
 
     
@@ -56,9 +57,7 @@ def Connect(self):
     return
 
 def makeOverview(self,Multi, Pos):
-    """creates an overview image for finding suitable spots,
-    parts of this function can be replaced by calling
-    the method applyGUISettings, but this is not implemented yet"""
+    """creates an overview image for finding suitable spots"""
 
     
     #get values from GUI entries
@@ -93,7 +92,11 @@ def makeOverview(self,Multi, Pos):
     
     path = 'D:/current data/'
     im = specpy.Imspector()#re-get connection
-    msr=im.create_measurement()
+    try:
+        msr = im.active_measurement()
+    except:
+        self.T.insert(tk.END, 'creating new measurement, is fine z set correct?\n')
+        msr=im.create_measurement()
     config = msr.active_configuration()
     # overview is called multiple times to identify spot locations for the next spot.
     if Multi == 1: 
@@ -119,6 +122,10 @@ def makeOverview(self,Multi, Pos):
     config.set_parameters('ExpControl/scan/range/y/len',roi_size)
     config.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
     config.set_parameters('ExpControl/scan/range/t/res',number_frames)
+    config.set_parameters('ExpControl/scan/range/x/off', 0)
+    config.set_parameters('ExpControl/scan/range/y/off', 0)
+    #potentially this is needed to avoid z-displacement
+    #config.set_parameters('ExpControl/scan/range/z/off', 1e-6)#z_position*z_pixelsize)
     #use only one linestep
     config.set_parameters('ExpControl/gating/linesteps/steps_active',
                           [True, False, False, False, False, False, False, False])
@@ -146,6 +153,7 @@ def makeOverview(self,Multi, Pos):
     peakchannels = self.peakchannels.get()
     firstchannel = int(peakchannels[0])
     overview = self.xy_data[firstchannel]
+    self.overview = overview
     #add more channels if given
     for chan in peakchannels[1:]:
         overview += self.xy_data[int(chan)]
@@ -186,97 +194,21 @@ def Run_meas(self):
     for each position an image if recorded according to the settings in the GUI
     the data is saved as a ptu file, an overview image of the region is also saved
     
-    Large portions of this function can be replaced by the method 
-    applyGUISettings. TODO
-
     Returns
     -------
     None.
 
     """
+    #currently this seems not to be implemented, have to re-add.
     Pos = self.y_coarse_offset
-    pixelsize = self.pxsize.get()
+    
     #values are by default read in as tring, have to convert
     pixelsize_global = float(self.pxsize_overview_value.get()) * 1e-9
-    
-    #consider moving below part to separate function
-    #z_position =  5e-08 #float(pixelsize)*1e-09         # in meter
-    x_pixelsize = float(pixelsize)*1e-09        # in meter
-    y_pixelsize = float(pixelsize)*1e-09        # in meter
-    z_pixelsize = float(pixelsize)*1e-09        # in meter
-    roi_size =    float(self.ROIsize.get())*1e-06            # in meter 
-    Dwelltime= float(self.dwelltime.get())*1e-06         # in seconds  
-           
-    LP485 = self.L485_value.get()
-    LP518 = self.L518_value.get()
-    LP561 = self.L561_value.get()
-    LP640 = self.L640_value.get()
-    #LP595 = self.L595_value.get()
-    LP775 = self.L775_value.get()
-                
-    Streaming_HydraHarp= True # Type True or False for Streaming via HydraHarp 
-    modelinesteps= True      #Type True for linesteps
-    number_linesteps = 2     #Type the number of linesteps
-    xyt_mode = 784           #Type 785 for xyt mode
-    
-    number_frames = float(self.NoFrames.get())     #Type number of frames t in xyt mode
-    #time_wait = math.ceil((roi_size/x_pixelsize) * (roi_size/y_pixelsize)* number_frames* Dwelltime) + 1
-    #measurement time consists of line scan rate + flyback time + buffer
-    time_wait = 1
-                    
-    Activate485 = bool(self.L485_1)                    
-    Activate518 = bool(self.L518_1)   
-    Activate561 = bool(self.L561_1)   
-    Activate640 = bool(self.L640_1)   
-    Activate595 = bool(self.L595_1)   
-    Activate775 = bool(self.L775_1)   
-    
-    Activate485_02 = bool(self.L485_2)                    
-    Activate518_02 = bool(self.L518_2)   
-    Activate561_02 = bool(self.L561_2)   
-    Activate640_02 = bool(self.L561_2)   
-    Activate595_02 = bool(self.L595_2)   
-    Activate775_02 = bool(self.L775_2) 
+
     #Activate_Autofocus= bool(act_Autofocus)
-        
-        
-            
-        ############################
-        #Hydraharp-setting
-            
-    if Streaming_HydraHarp == True:
-        stream = 'HydraHarp'
-    else:
-        stream = 'fpga'
-                       
-    Ch1_mode= 0                # type 0 for counter and 1 for flim
-    Ch1_stream= stream         # type hydraharp or fpga for internal
-    Ch2_mode= 0          
-    Ch2_stream= stream
-    Ch3_mode= 0         
-    Ch3_stream= stream
-    Ch4_mode= 0         
-    Ch4_stream= stream
-            
-        ############################
-        #detector activation
-        
-    detector1= True
-    detector2= True
-    detector3= True
-    detector4= True
-            
-       ####################################################################################
-            
-        
-    linesteps = [False, False, False, False, False, False, False, False]
-    for i in range(number_linesteps):
-        linesteps[i] = True
-            
     
     im = specpy.Imspector() 
-    d = im.active_measurement()
-    M_obj= im.measurement(d.name())
+    msr = im.active_measurement()
              
 #    if Activate_Autofocus == True: #Activate_Autofocus
 #        M_obj.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', False)
@@ -300,62 +232,32 @@ def Run_meas(self):
     for i in range(x_roi_new.size):
         x_position = x_roi_new[i]
         y_position = y_roi_new[i]
-        d = im.active_measurement()
-        M_obj.clone(d.active_configuration())
-        # this must not be the i-th but the latest configuration
-        M_obj.activate(M_obj.configuration(i))          
-        c = M_obj.configuration(i)
-        applyLaserSettings(self, c)
-        
-        c.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
-        c.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
-        c.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
-        c.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize_global )#+ ROI_offset)
-        c.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize_global )#+ ROI_offset)
-        c.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
-        c.set_parameters('ExpControl/scan/range/x/len',roi_size)
-        c.set_parameters('ExpControl/scan/range/y/len',roi_size)
-        c.set_parameters('ExpControl/scan/range/z/len',roi_size)
-        c.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
-        c.set_parameters('HydraHarp/data/streaming/enable', Streaming_HydraHarp)
-        c.set_parameters('HydraHarp/is_active', Streaming_HydraHarp)
-        c.set_parameters('ExpControl/gating/tcspc/channels/0/mode', Ch1_mode)
-        c.set_parameters('ExpControl/gating/tcspc/channels/0/stream', Ch1_stream)
-        c.set_parameters('ExpControl/gating/tcspc/channels/1/mode', Ch2_mode)
-        c.set_parameters('ExpControl/gating/tcspc/channels/1/stream', Ch2_stream)
-        c.set_parameters('ExpControl/gating/tcspc/channels/2/mode', Ch3_mode)
-        c.set_parameters('ExpControl/gating/tcspc/channels/2/stream', Ch3_stream)
-        c.set_parameters('ExpControl/gating/tcspc/channels/3/mode', Ch4_mode)
-        c.set_parameters('ExpControl/gating/tcspc/channels/3/stream', Ch4_stream)
-        c.set_parameters('ExpControl/gating/linesteps/on', modelinesteps)
-        c.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
-        c.set_parameters('ExpControl/gating/linesteps/step_values',[1,1,0,0,0,0,0,0])
-        c.set_parameters('ExpControl/scan/range/mode',xyt_mode)
-        c.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', float(LP485))
-        c.set_parameters('ExpControl/lasers/power_calibrated/2/value/calibrated', float(LP518))
-        c.set_parameters('ExpControl/lasers/power_calibrated/3/value/calibrated', float(LP561))
-        c.set_parameters('ExpControl/lasers/power_calibrated/4/value/calibrated', float(LP640))
-        c.set_parameters('ExpControl/lasers/power_calibrated/5/value/calibrated', float(LP775))
-        c.set_parameters('ExpControl/gating/pulses/pulse_chan/delay',[0.0, 0.0, 0.0, 0.0])
-        c.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
+        config = msr.clone(msr.active_configuration())
+        applyLaserSettings(self, config)
+        applyScannerSettings(self, config)
+        applyDetectorSettings(self, config, 
+                        enableStream = True, 
+                        stream = 'HydraHarp',
+                        number_linesteps = 2)
+        config.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize_global )#+ ROI_offset)
+        config.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize_global )#+ ROI_offset)
+        #config.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
 
-        c.set_parameters('ExpControl/scan/range/t/res',number_frames)
-        c.set_parameters('ExpControl/gating/linesteps/chans_enabled',[detector1,detector2,detector3,detector4])
-        c.set_parameters('ExpControl/scan/detsel/detsel',['APD1', 'APD2', 'APD3', 'APD4'])
-        c.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, True, True, True],
-         [True, True, True, True],
-         [False, False, False, False],
-         [False, False, False, False],
-         [False, False, False, False],
-         [False, False, False, False],
-         [False, False, False, False],
-         [False, False, False, False]])
-           
+        xyt_mode = 784# for xyt mode  784 #for xyz_mode 528
+        config.set_parameters('ExpControl/scan/range/mode',xyt_mode)     
 
-        im.run(M_obj)
-        time.sleep(time_wait) 
+        im.run(msr)
+        #prevent that impsector crashes by running too many measurements shortly after
+        #another
+        #debree in case an intelligent estimate of the wait time is ever needed
+# =============================================================================
+#     #time_wait = math.ceil((roi_size/x_pixelsize) * (roi_size/y_pixelsize)* number_frames* Dwelltime) + 1
+#     #measurement time consists of line scan rate + flyback time + buffer
+# =============================================================================
+        time.sleep(1) #in seconds
         
         if self.abort_run:
+            self.T.delete('1.0', tk.END) 
             self.T.insert(tk.END, 'aborting (multi-) measurement run\n')
             self.T.insert(tk.END, 'be sure to reset abort before your next run\n')
             break
@@ -418,12 +320,12 @@ def timeRun(self):
         x_position = x_roi_new[i]
         y_position = y_roi_new[i]
         #d = im.active_measurement()
-        msr.clone(msr.active_configuration())
+        #seems that the cloned measurement should be automatically activated, need to test
+        config = msr.clone(msr.active_configuration())
 
 
 
         #seems that the cloned measurement should be automatically activated, need to test
-        config = msr.active_configuration()
 # =============================================================================
 #        # the last config name corresponds to the newest configuration
 #         config_name = msr.configuration_names()[-1]
@@ -514,11 +416,12 @@ def applyScannerSettings(self, config):
     roi_size =    float(self.ROIsize.get())*1e-06            # in meter
     number_frames = float(self.NoFrames.get())     #Type number of frames t in xyt mode
     #this seems to enable the autofocus, is it really so?
-    config.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
+    #config.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
     config.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
     
-    #setting the pinhole here silently? need to communicate this clearly
+    #setting the pinhole to 1.25AU
     config.set_parameters('Pinhole/pinhole_size', 10e-5)
+    warnings.warn('setting the pinhole radius to 1.25AU or 100 micron')
     
     #set the scanner size
     config.set_parameters('ExpControl/scan/range/x/psz',pixelsize)
@@ -526,15 +429,18 @@ def applyScannerSettings(self, config):
     #xy offset is set in the function
     config.set_parameters('ExpControl/scan/range/x/len',roi_size)
     config.set_parameters('ExpControl/scan/range/y/len',roi_size)
-    config.set_parameters('ExpControl/scan/range/z/len',0)
+    #config.set_parameters('ExpControl/scan/range/z/len',0)
     config.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
     config.set_parameters('ExpControl/scan/range/t/res',number_frames)
+    
 def applyDetectorSettings(self, config, 
                         enableStream = False, 
-                        stream = 'HydraHarp'):
+                        stream = 'HydraHarp',
+                        number_linesteps = 2):
     assert stream == 'HydraHarp' or stream == 'fpga', 'bad stream value'
     config.set_parameters('HydraHarp/is_active', True) #not sure what this does
-    config.set_parameters('HydraHarp/data/streaming/enable', enableStream)
+    # Type True or False for Streaming via HydraHarp 
+    config.set_parameters('HydraHarp/data/streaming/enable', enableStream) 
     # mode codes: type 0 for counter and 1 for flim
     config.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0) 
     config.set_parameters('ExpControl/gating/tcspc/channels/0/stream', stream)
@@ -552,6 +458,13 @@ def applyDetectorSettings(self, config,
     config.set_parameters('ExpControl/gating/linesteps/chans_on', \
                         [[True]*4, [True]*4, [False]*4, [False]*4, \
                          [False]*4, [False]*4, [False]*4, [False]*4])
+    linesteps = [False]*8
+    step_values = [0]*8
+    for i in range(number_linesteps):
+        linesteps[i] = True
+        step_values[i] = 1
+    config.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
+    config.set_parameters('ExpControl/gating/linesteps/step_values', step_values)
        
 def applyLaserSettings(self, config):
     #read-out GUI values in SI units
@@ -562,18 +475,18 @@ def applyLaserSettings(self, config):
     LP640 = float(self.L640_value.get())
     LP595 = float(self.L595_value.get()) #which id in power_calibrated does this have? Somewhere it was written that it should be 2.
     LP775 = float(self.L775_value.get())
-    Activate485 = bool(self.L485_1)                    
-    Activate518 = bool(self.L518_1)   
-    Activate561 = bool(self.L561_1)   
-    Activate640 = bool(self.L640_1)   
-    Activate595 = bool(self.L595_1)   
-    Activate775 = bool(self.L775_1)   
-    Activate485_02 = bool(self.L485_2)                    
-    Activate518_02 = bool(self.L518_2)   
-    Activate561_02 = bool(self.L561_2)   
-    Activate640_02 = bool(self.L640_2)   
-    Activate595_02 = bool(self.L595_2)   
-    Activate775_02 = bool(self.L775_2) 
+    Activate485 = bool(self.L485_1.get())
+    Activate518 = bool(self.L518_1.get())
+    Activate561 = bool(self.L561_1.get())
+    Activate640 = bool(self.L640_1.get())
+    Activate595 = bool(self.L595_1.get())
+    Activate775 = bool(self.L775_1.get())
+    Activate485_02 = bool(self.L485_2.get())
+    Activate518_02 = bool(self.L518_2.get())
+    Activate561_02 = bool(self.L561_2.get())
+    Activate640_02 = bool(self.L640_2.get())
+    Activate595_02 = bool(self.L595_2.get())
+    Activate775_02 = bool(self.L775_2.get())
     config.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', float(LP485))
     config.set_parameters('ExpControl/lasers/power_calibrated/2/value/calibrated', float(LP518))
     config.set_parameters('ExpControl/lasers/power_calibrated/3/value/calibrated', float(LP561))

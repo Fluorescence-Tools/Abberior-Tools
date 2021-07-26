@@ -79,7 +79,7 @@ class AbberiorControl(tk.Tk):
                                      font = ('Sans','9','bold'))
         scale_02_label.grid(row = 0, column = 1, sticky = tk.W+tk.N)
         scale_02 = tk.Scale(self.frame_7, from_=0, to=500, showvalue=1, background =self.color)
-        scale_02.set(50)
+        scale_02.set(500)
         scale_02.bind("<ButtonRelease-1>", self.RELEASE)
         scale_02.grid(row = 1, column = 1, sticky = tk.W+tk.N)
         self.scale_02 = scale_02
