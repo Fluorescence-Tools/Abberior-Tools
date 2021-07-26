@@ -55,7 +55,7 @@ def Connect(self):
         T.insert(tk.END, 'connection failed\n')    
     return
 
-def Overview(self,Multi, Pos):
+def makeOverview(self,Multi, Pos):
     """creates an overview image for finding suitable spots,
     parts of this function can be replaced by calling
     the method applyGUISettings, but this is not implemented yet"""
@@ -70,24 +70,13 @@ def Overview(self,Multi, Pos):
     y_pixelsize = float(self.pxsize_overview_value.get())*1e-09       # in meter
     z_pixelsize = float(self.pxsize_overview_value.get())*1e-09       # in meter
     px_num = roi_size/x_pixelsize
-
-
-    #Streaming_HydraHarp= True # Type True or False for Streaming via HydraHarp
-    #modelinesteps= True      #Type True for linesteps
-    # for xyt mode  784
-    #for xyz_mode 528
-    xyt_mode = 784#1296           # for xyt mode  784
     
-    
-     #here the laser values are read in, but why the strange format
+     #here the laser values are read in, multiple simultaneous can be indicated split by kommas
     laser_overview = [int(s) for s in self.laser_overview_entry.get().split(',')]
     laser_overview_VALUE = [int(s) for s in self.laser_overview_value.get().split(',')]
-#    laser_overview_len = len([laser_overview]) 
-    laser_steps = len(laser_overview)
-    number_linesteps = laser_steps
     
-    #this piece of code seems to set which lasers are active, but can it be simpler? Should it be left as-is?
-    LASER_ACT =[]
+    #translate string from GUI to position in array
+    lasersOn = []
     for i in range(len(laser_overview)):
         if laser_overview[i]  == 485:laservalue = 0
         elif laser_overview[i]  == 518:laservalue = 1
@@ -95,109 +84,75 @@ def Overview(self,Multi, Pos):
         elif laser_overview[i]  == 561:laservalue = 3
         elif laser_overview[i]  == 640:laservalue = 4
         elif laser_overview[i]  == 775:laservalue = 5
-        #this seems like a bug
-        #A check is missing to report on allowed values
-        laser_activ = [False]*8 
-        laser_activ[laservalue] = True
-        LASER_ACT.append(laser_activ)
-    #this solves a bug where the length of the arraz should be 8x8
-    if not len(LASER_ACT) == 8:
-        calc = 8-len(LASER_ACT)
-        for i in range(calc):
-            LASER_ACT.append([False]*8)
-    
-    #this sets which linesteps are active
-    linesteps = [False]*8
-    linesteps_number = [0]*8
-    for i in range(number_linesteps):
-        linesteps[i] = True
-        linesteps_number[i] = 1
-        
+        lasersOn.append(laservalue)
+    LASER_ACT =[False]*8
+    for laser in lasersOn:
+        LASER_ACT[laser] = True
     
     ############
     
     path = 'D:/current data/'
     im = specpy.Imspector()#re-get connection
-    meas=im.create_measurement()
+    msr=im.create_measurement()
+    config = msr.active_configuration()
     # overview is called multiple times to identify spot locations for the next spot.
     if Multi == 1: 
         print('MULTIRUN')
-        meas.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) # current stage position in x [m]
+        config.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) # current stage position in x [m]
     else:
         print('non MULTIRUN')
-    #meas.set_parameters('ExpControl/scan/range/x/len',roi_size)
-    #meas.set_parameters('ExpControl/scan/range/y/len',roi_size)
-    #meas.set_parameters('ExpControl/scan/range/z/len',0)
-    #must be set first such that settings are available?
-    meas.set_parameters('ExpControl/scan/range/mode',xyt_mode) 
+    #must be set first such that settings are available? no.
+    xyt_mode = 784# for xyt mode  784 #for xyz_mode 528
+    config.set_parameters('ExpControl/scan/range/mode',xyt_mode) 
 
     #a bunch of these steps are default and can be put into a helper function
-    applyGUISettings(self, meas)
-    
-    meas.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
-    meas.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
-    meas.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
-    #roi size is set twice, first in applyGUISettings and second time here
-    #but here with the overview dimensions, sloppy
-    meas.set_parameters('ExpControl/scan/range/x/len',roi_size)
-    meas.set_parameters('ExpControl/scan/range/y/len',roi_size)
-    meas.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
-    meas.set_parameters('ExpControl/scan/range/t/res',number_frames)
-    meas.set_parameters('ExpControl/gating/linesteps/steps_active', linesteps)
-    meas.set_parameters('ExpControl/gating/linesteps/laser_on',LASER_ACT)
-
-    #why only if laser steps = 1?
-    if laser_steps == 1:
-        meas.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
-        meas.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[0])
-        meas.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, True, True, True],[True, True, True, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
-        
-    else: 
-        for i in range(len(laser_overview)):
-            if laser_overview[i]  == 485:laservalue = 0
-            elif laser_overview[i]  == 518:laservalue = 1
-            elif laser_overview[i]  == 595:laservalue = 2
-            elif laser_overview[i]  == 561:laservalue = 3
-            elif laser_overview[i]  == 640:laservalue = 4
-            elif laser_overview[i]  == 775:laservalue = 5
-            meas.set_parameters('{}{}{}'.format('ExpControl/lasers/power_calibrated/', laservalue,'/value/calibrated'), laser_overview_VALUE[i])
-        meas.set_parameters('ExpControl/gating/linesteps/step_values',linesteps_number)
-        meas.set_parameters('ExpControl/gating/linesteps/chans_on', [[True, False, True, False],[False, True, False, True],[True, True, True, True],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False],[False, False, False, False]])
+    applyScannerSettings(self, config)
+    applyDetectorSettings(self, config, 
+                        enableStream = False, 
+                        stream = 'HydraHarp')
+    #roi size, pixel size and laser settings are first set in above functions
+    #then overwritten herer
+    config.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
+    config.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
+    config.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
+    config.set_parameters('ExpControl/scan/range/x/len',roi_size)
+    config.set_parameters('ExpControl/scan/range/y/len',roi_size)
+    config.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
+    config.set_parameters('ExpControl/scan/range/t/res',number_frames)
+    #use only one linestep
+    config.set_parameters('ExpControl/gating/linesteps/steps_active',
+                          [True, False, False, False, False, False, False, False])
+    config.set_parameters('ExpControl/gating/linesteps/laser_on',[LASER_ACT]*8)
+    #apply laser settings
+    for laser, power in zip(lasersOn, laser_overview_VALUE):
+        config.set_parameters('ExpControl/lasers/power_calibrated/%i/value/calibrated' % laser, power)
     
     #here the measurement is actually run
-    im.run(meas)
+    im.run(msr)
 
     #here the data is read out of the image
     #get data and sum over the axes t and z
-    xy_data = [np.sum(meas.stack(i).data(), axis = (0, 1)) for i in range(4)]
+    xy_data = [np.sum(config.stack(i).data(), axis = (0, 1)) for i in range(4)]
     self.xy_data = xy_data
-    datashape = meas.stack(0).data().shape
-    
-    #this function is needed for the elif statement below. I am not sure
-    #what these statements do. If possible, this pix_data should be deleted
-    pix_data = meas.stack(0).data()
-
-    #safety declaration
-    r1 = 0
-    r2 = 0
+    datashape = config.stack(0).data().shape
     print('xy dimensions of overview image is (%i, %i)'% xy_data[0].shape)
+    
     #the data array should have format [time, z, y, x]
     assert datashape == (1,number_frames,np.round(px_num,0),np.round(px_num,0)), \
         'The image shape does not match the expected shape'
-    r1 = xy_data[0] + xy_data[2] # green channels
-    r2 = xy_data[1] + xy_data[3] # red channels
-    #this is hit when an overview is created
-    if laser_steps == 1:
-        data = r2+r1
-    else: #maybe we want to change this behavior
-        data = r2
-    #pp.imshow(data) this doesn't seem to do anything
-
         
-           
+    #from all channels, the relevant ones are added to make the overview image
+    #peak selection also occurs on the overview image
+    peakchannels = self.peakchannels.get()
+    firstchannel = int(peakchannels[0])
+    overview = self.xy_data[firstchannel]
+    #add more channels if given
+    for chan in peakchannels[1:]:
+        overview += self.xy_data[int(chan)]
+
     #display overview image, see 
     #https://stackoverflow.com/questions/10965417/how-to-convert-a-numpy-array-to-pil-image-applying-matplotlib-colormap
-    photo = cm.hot(data.astype(np.float)/max(data.flatten())) # cm needs floats
+    photo = cm.hot(overview.astype(np.float)/max(overview.flatten())) # cm needs floats
     photo = np.uint8(photo * 255)
     photo = Image.fromarray(photo)
     photo = photo.resize((400, 400), Image.ANTIALIAS)
@@ -209,16 +164,14 @@ def Overview(self,Multi, Pos):
     label.grid(row=0)
     self.T.delete('1.0', tk.END) 
     self.T.insert(tk.END, "Overview created\n") 
-    return data, roi_size, r1, r2, x_pixelsize
-  
-
+    return
     
-def Findpeak(self):
-    """currently a dummy that returns 3 random xy pairs"""
-    import random
-    self.roi_xs = np.array([random.random() *10 for i in range(3)])
-    self.roi_ys = np.array([random.random() *10 for i in range(3)])
-    self.number_peaks = len(self.roi_xs)
+# def Findpeak(self):
+#     """currently a dummy that returns 3 random xy pairs"""
+#     import random
+#     self.roi_xs = np.array([random.random() *10 for i in range(3)])
+#     self.roi_ys = np.array([random.random() *10 for i in range(3)])
+#     self.number_peaks = len(self.roi_xs)
 
     
 def _Run_meas(*args):  
@@ -349,10 +302,10 @@ def Run_meas(self):
         y_position = y_roi_new[i]
         d = im.active_measurement()
         M_obj.clone(d.active_configuration())
+        # this must not be the i-th but the latest configuration
         M_obj.activate(M_obj.configuration(i))          
         c = M_obj.configuration(i)
-        #this does not work, need to do this cloning business
-        # c = im.create_measurement()
+        applyLaserSettings(self, c)
         
         c.set_parameters('ExpControl/scan/range/x/psz',x_pixelsize)
         c.set_parameters('ExpControl/scan/range/y/psz',y_pixelsize)
@@ -442,8 +395,8 @@ def timeRun(self):
     # I don't understand why this is needed, or how it works,
     #but removing it causes strange behaviour         
     im = specpy.Imspector() 
-    d = im.active_measurement()
-    msr = im.measurement(d.name()) 
+    msr = im.active_measurement()
+    #msr = im.measurement(d.name()) 
 #    if Activate_Autofocus == True: #Activate_Autofocus
 #        config.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', False)
 #        time.sleep(2) 
@@ -459,48 +412,56 @@ def timeRun(self):
     #save the overview image and to be imaged spots
     spotFinding.plotpeaks(self.smoothimage, self.goodpeaks,\
                           savedir = self.dataout, isshow = True)
-
+    acquisition_time = 3
     for i in range(x_roi_new.size):
         print("analysing spot %i out of %i" % (i, len(x_roi_new)))
         x_position = x_roi_new[i]
         y_position = y_roi_new[i]
-        d = im.active_measurement()
-        msr.clone(d.active_configuration())
-        # the last config name corresponds to the newest configuration
-        config_name = msr.configuration_names()[-1]
-        config = msr.configuration(config_name)
-        msr.activate(config)          
+        #d = im.active_measurement()
+        msr.clone(msr.active_configuration())
+
+
+
+        #seems that the cloned measurement should be automatically activated, need to test
+        config = msr.active_configuration()
+# =============================================================================
+#        # the last config name corresponds to the newest configuration
+#         config_name = msr.configuration_names()[-1]
+#         config = msr.configuration(config_name)
+#         # msr.activate(config)          
+# =============================================================================
         applyLaserSettings(self, config)
-        #config.set_parameters('ExpControl/lasers/power_calibrated/0/value/calibrated', 5)
-        #config.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, False, False, True, False, False, False, False])
+        applyDetectorSettings(self, config, stream = 'HydraHarp',
+                              enableStream = True)
         # for xyt mode  784    #for xyz_mode 528    #for t 1363
         config.set_parameters('ExpControl/scan/range/mode',1363)
-        config.set_parameters('ExpControl/scan/range/t/len', 5)
-        stream = 'HydraHarp'
+        config.set_parameters('ExpControl/scan/range/t/len', acquisition_time)
         config.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize )
         config.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize )
-        config.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0) 
-        config.set_parameters('ExpControl/gating/tcspc/channels/0/stream', stream)
-        config.set_parameters('ExpControl/gating/tcspc/channels/1/mode', 0)
-        config.set_parameters('ExpControl/gating/tcspc/channels/1/stream', stream)
-        config.set_parameters('ExpControl/gating/tcspc/channels/2/mode', 0)
-        config.set_parameters('ExpControl/gating/tcspc/channels/2/stream', stream)
-        config.set_parameters('ExpControl/gating/tcspc/channels/3/mode', 0)
-        config.set_parameters('ExpControl/gating/tcspc/channels/3/stream', stream)
-        config.set_parameters('HydraHarp/data/streaming/enable', True)
-        config.set_parameters('HydraHarp/is_active', True) #not sure what this does
+        # config.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0) 
+        # config.set_parameters('ExpControl/gating/tcspc/channels/0/stream', stream)
+        # config.set_parameters('ExpControl/gating/tcspc/channels/1/mode', 0)
+        # config.set_parameters('ExpControl/gating/tcspc/channels/1/stream', stream)
+        # config.set_parameters('ExpControl/gating/tcspc/channels/2/mode', 0)
+        # config.set_parameters('ExpControl/gating/tcspc/channels/2/stream', stream)
+        # config.set_parameters('ExpControl/gating/tcspc/channels/3/mode', 0)
+        # config.set_parameters('ExpControl/gating/tcspc/channels/3/stream', stream)
+        # config.set_parameters('HydraHarp/data/streaming/enable', True)
+        # config.set_parameters('HydraHarp/is_active', True) #not sure what this does
         im.run(msr)
         print("finished position x %i and y %i" % (x_position, y_position))
 
         #if by accident the integration time is really short, this
         #should prevent the software from crashing
-        time.sleep(2) 
+        if acquisition_time < 1:
+            time.sleep(2) 
         
         
         #plot t trace of last ptu file
         lastfile = plotTrace.getLastModified(self.dataout)
         channels = plotTrace.getTraces(lastfile, [0,2])
-        binneddata = plotTrace.plotTrace(channels, (0,10), lastfile, outname = 'inferred')
+        binneddata = plotTrace.plotTrace(channels, (0,acquisition_time), lastfile,\
+                                         step = 5e-3, outname = 'inferred')
 
         if self.abort_run: #not Implemented, need to split function off in seperate
         #thread like in _run_meas
@@ -542,58 +503,55 @@ def timeRun(self):
 # =============================================================================
     return save_path
 
-def applyGUISettings(self, meas, 
-                        enableStream = False, 
-                        stream = 'HydraHarp'):
+def applyScannerSettings(self, config):
     """for most of the measurement a lot of settings are default, they are set
     for the meas object that is passed to this function
     the time measurement was giving some trouble, now it is split somewhat, have to clean up"""
     
-    assert stream == 'HydraHarp' or stream == 'fpga', 'bad stream value'
+    
     Dwelltime= float(self.dwelltime.get())*1e-06         # in seconds
     pixelsize = float(self.pxsize.get())*1e-09          # in meter
     roi_size =    float(self.ROIsize.get())*1e-06            # in meter
     number_frames = float(self.NoFrames.get())     #Type number of frames t in xyt mode
-    meas.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
-    meas.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
-    meas.set_parameters('HydraHarp/data/streaming/enable', enableStream)
-    meas.set_parameters('HydraHarp/is_active', True) #not sure what this does
-    meas.set_parameters('Pinhole/pinhole_size', 10e-5)
+    #this seems to enable the autofocus, is it really so?
+    config.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
+    config.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
     
-    meas.set_parameters('ExpControl/scan/range/x/psz',pixelsize)
-    meas.set_parameters('ExpControl/scan/range/y/psz',pixelsize)
-    #meas.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)#notImplemented
+    #setting the pinhole here silently? need to communicate this clearly
+    config.set_parameters('Pinhole/pinhole_size', 10e-5)
+    
+    #set the scanner size
+    config.set_parameters('ExpControl/scan/range/x/psz',pixelsize)
+    config.set_parameters('ExpControl/scan/range/y/psz',pixelsize)
     #xy offset is set in the function
-    #meas.set_parameters('ExpControl/scan/range/z/off', 1e-15)#notImplemented
-    meas.set_parameters('ExpControl/scan/range/x/len',roi_size)
-    meas.set_parameters('ExpControl/scan/range/y/len',roi_size)
-    meas.set_parameters('ExpControl/scan/range/z/len',0)
-    #meas.set_parameters('ExpControl/scan/range/t/len', 10) # in seconds, should become button
-    meas.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
-    #do not set dwelltime setting dwelltime resets total integration time such that
-    #len = pxs * dwelltime
-    #meas.set_parameters('ExpControl/scan/range/t/psz', Dwelltime)
-     # mode codes: type 0 for counter and 1 for flim
-    meas.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0) 
-    meas.set_parameters('ExpControl/gating/tcspc/channels/0/stream', stream)
-    meas.set_parameters('ExpControl/gating/tcspc/channels/1/mode', 0)
-    meas.set_parameters('ExpControl/gating/tcspc/channels/1/stream', stream)
-    meas.set_parameters('ExpControl/gating/tcspc/channels/2/mode', 0)
-    meas.set_parameters('ExpControl/gating/tcspc/channels/2/stream', stream)
-    meas.set_parameters('ExpControl/gating/tcspc/channels/3/mode', 0)
-    meas.set_parameters('ExpControl/gating/tcspc/channels/3/stream', stream)
-    meas.set_parameters('ExpControl/scan/detsel/detsel',['APD1', 'APD2', 'APD3', 'APD4'])
-    meas.set_parameters('ExpControl/gating/linesteps/chans_enabled',[True, True, True, True])
-    meas.set_parameters('ExpControl/gating/pulses/pulse_chan/delay',[0.0, 0.0, 0.0, 0.0]) # not sure if needed
-    meas.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
-
-    meas.set_parameters('ExpControl/gating/linesteps/chans_enabled',[True] * 4)
-    meas.set_parameters('ExpControl/scan/detsel/detsel',['APD1', 'APD2', 'APD3', 'APD4'])
-    meas.set_parameters('ExpControl/gating/linesteps/chans_on', \
+    config.set_parameters('ExpControl/scan/range/x/len',roi_size)
+    config.set_parameters('ExpControl/scan/range/y/len',roi_size)
+    config.set_parameters('ExpControl/scan/range/z/len',0)
+    config.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
+    config.set_parameters('ExpControl/scan/range/t/res',number_frames)
+def applyDetectorSettings(self, config, 
+                        enableStream = False, 
+                        stream = 'HydraHarp'):
+    assert stream == 'HydraHarp' or stream == 'fpga', 'bad stream value'
+    config.set_parameters('HydraHarp/is_active', True) #not sure what this does
+    config.set_parameters('HydraHarp/data/streaming/enable', enableStream)
+    # mode codes: type 0 for counter and 1 for flim
+    config.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0) 
+    config.set_parameters('ExpControl/gating/tcspc/channels/0/stream', stream)
+    config.set_parameters('ExpControl/gating/tcspc/channels/1/mode', 0)
+    config.set_parameters('ExpControl/gating/tcspc/channels/1/stream', stream)
+    config.set_parameters('ExpControl/gating/tcspc/channels/2/mode', 0)
+    config.set_parameters('ExpControl/gating/tcspc/channels/2/stream', stream)
+    config.set_parameters('ExpControl/gating/tcspc/channels/3/mode', 0)
+    config.set_parameters('ExpControl/gating/tcspc/channels/3/stream', stream)
+    config.set_parameters('ExpControl/scan/detsel/detsel',['APD1', 'APD2', 'APD3', 'APD4']) # is this needed?
+    config.set_parameters('ExpControl/gating/linesteps/chans_enabled',[True, True, True, True]) # what does this do?
+    config.set_parameters('ExpControl/gating/pulses/pulse_chan/delay',[0.0, 0.0, 0.0, 0.0]) # not sure if needed
+    #where can I set how many linesteps are on?
+    config.set_parameters('ExpControl/gating/linesteps/laser_enabled',[True, True, True, True, True, True, False, False])
+    config.set_parameters('ExpControl/gating/linesteps/chans_on', \
                         [[True]*4, [True]*4, [False]*4, [False]*4, \
                          [False]*4, [False]*4, [False]*4, [False]*4])
-    meas.set_parameters('ExpControl/scan/range/t/res',number_frames)
-
        
 def applyLaserSettings(self, config):
     #read-out GUI values in SI units
@@ -602,7 +560,7 @@ def applyLaserSettings(self, config):
     LP518 = float(self.L518_value.get())
     LP561 = float(self.L561_value.get())
     LP640 = float(self.L640_value.get())
-    LP595 = float(self.L595_value.get())
+    LP595 = float(self.L595_value.get()) #which id in power_calibrated does this have? Somewhere it was written that it should be 2.
     LP775 = float(self.L775_value.get())
     Activate485 = bool(self.L485_1)                    
     Activate518 = bool(self.L518_1)   
@@ -624,6 +582,7 @@ def applyLaserSettings(self, config):
     config.set_parameters('ExpControl/gating/linesteps/laser_on',[[Activate485, Activate518, Activate595, Activate561, Activate640, Activate775, False, False],
          [Activate485_02, Activate518_02, Activate595_02, Activate561_02, Activate640_02, Activate775_02, False, False],
          [False]*8,[False]*8,[False]*8,[False]*8,[False]*8,[False]*8]) #the last six linesteps are not used
+    
 def SAVING(path,a):
     from docx import Document
     #from docx.shared import Pt
@@ -750,9 +709,6 @@ def SAVING(path,a):
         document = Document()
         document.add_heading('this is just a test document')
         document.save('{}{}'.format(path,'/Meas_protocol.docx'))
-
-
-
        
 def layout(self):
     root = self.parent
@@ -915,6 +871,14 @@ def layout(self):
     laser_overview_value.insert(tk.END, '5')
     laser_overview_value.grid(row = 5, column = 2, sticky = 'w')
     
+    #this button should ideally be moved to a findpeak tab
+    peakchannelLab= tk.Label(page1, text=' findpeak chan:', height = 1, foreground= txtcolour, background=colour)
+    peakchannelLab.grid(row = 6, column = 0, sticky = 'w')
+    peakchannels = tk.Entry(page1, width = 8, foreground= 'white', bg = 'grey')
+    peakchannels.insert(tk.END, '0123')
+    peakchannels.grid(row = 6, column = 1, sticky = 'w')
+
+    
 #########
 ### ROI_select 
 
@@ -967,7 +931,7 @@ def layout(self):
     MultiRUN_01 = tk.Entry(frame_8,width = 8)
     MultiRUN_01.insert(tk.END, '3')
     MultiRUN_01.grid(row = 0, column = 3, sticky = 'w')
-    
+
     MultiRUN_s= tk.Label(frame_8, text='', height = 1, foreground= txtcolour, background=colour)
     MultiRUN_s.grid(row = 0, column = 0, sticky = 'w')
     
@@ -988,6 +952,7 @@ def layout(self):
     var15 = tk.IntVar(value=0)
     Circle_01 = tk.Checkbutton(frame_8,  variable = var15, background =colour)
     Circle_01.grid(row=3, column = 3, sticky = tk.W)
+    
 
     
     
@@ -1141,6 +1106,7 @@ def layout(self):
     self.AutofocusOnROISelect = var13
     self.AutofocusOnOverview = var14
     self.circle = var15
+    self.peakchannels = peakchannels
     self.L485_value = L485_value_01 #don't need this 01 appendix
     self.L518_value = L518_value_01
     self.L561_value = L561_value_01

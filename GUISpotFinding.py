@@ -67,7 +67,7 @@ def smooth_image(im, sigma = 1):
     """this function has been yanked from FindPeaksLib in FRC too"""
     return gaussian_filter(im.astype(np.double), sigma)
 
-def filterjunk(image, peaks, minarea = 20, bglevel = 2,
+def filterjunk(image, peaks, minarea = 20, bglevel = 2, maxarea = 100,
                 return_diagnostics = False):
     #get the flowarea per peak and apply threshold
     peaks0, counts = np.unique(peaks, return_counts = True, axis = 0)
@@ -75,6 +75,7 @@ def filterjunk(image, peaks, minarea = 20, bglevel = 2,
     #get the values per peak and apply threshold
     vals = image[tuple(peaks0.T)] #indexing wants a tuple for future safety
     good = np.logical_and(vals > bglevel, counts > minarea)
+    good = np.logical_and(good, counts < maxarea)
     peaks0 = peaks0[good]
     if return_diagnostics:
         res = [peaks0, counts[good], vals[good]]
@@ -85,15 +86,16 @@ def filterRmin(peaks, Rmin):
     #consider changing this function such that 
     #order = vals.argsort()[::-1]
     #ordered = peaks[order]
-    goodpeaks = []
+    goodpeakids = []
     for i, peak in enumerate(peaks):
         # need to exclude testing with self
         to_test = np.concatenate((peaks[:i], peaks[i+1:]))
         distances = np.linalg.norm(to_test - peak, axis = 1)
         if (distances > Rmin).all():
-            goodpeaks.append(peak)
-    print('filtered %i peaks' % (len(peaks) - len(goodpeaks)))
-    return np.array(goodpeaks)
+            goodpeakids.append(i)
+    print('filtered %i peaks' % (len(peaks) - len(goodpeakids)))
+    return np.array(goodpeakids)
+
 def plotpeaks(image, peaks, savedir = None, isshow = False):
     plt.figure(figsize = (10,10))
     plt.imshow(image)
@@ -117,7 +119,7 @@ def findPeaks(data, smooth_sigma = 1):
     peaks = findMaxima(data)
     return peaks, data
 import time
-def filterPeaks(image, peaks, bglevel = 5, minarea = 50, Rmin = 10):
+def filterPeaks(image, peaks, bglevel = 5, minarea = 0, maxarea = 100, Rmin = 10):
     """this function currently print the plot of the peaks, but it should print
     to the display of the GUI.
     Also it should save the selected peaks in a sensible way: both the image and
@@ -126,7 +128,12 @@ def filterPeaks(image, peaks, bglevel = 5, minarea = 50, Rmin = 10):
     goodpeaks, counts, vals = filterjunk(image, peaks, \
                                           minarea = minarea,\
                                           bglevel = bglevel, 
+                                          maxarea=maxarea,
                                           return_diagnostics = True)
-    ggoodpeaks = filterRmin(goodpeaks, Rmin)
+    goodpeakids = filterRmin(goodpeaks, Rmin)
+    ggoodpeaks = goodpeaks[goodpeakids]
+    counts = counts[goodpeakids]
+    vals = vals[goodpeakids]
+    print("%i good peaks found" % len(ggoodpeaks))
 
     return ggoodpeaks, counts, vals
