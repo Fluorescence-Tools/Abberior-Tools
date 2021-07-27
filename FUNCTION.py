@@ -56,8 +56,19 @@ def Connect(self):
         T.insert(tk.END, 'connection failed\n')    
     return
 
-def makeOverview(self,Multi, Pos):
-    """creates an overview image for finding suitable spots"""
+def makeOverview(self):
+    """creates an overview image for finding suitable spots
+    
+    Somewhere in this code there is a bug that resets the autofocus position
+    to -3000 when you don't expect it. The -3000 value usually corresponds to
+    an out-of-focus value.
+    I suspect it has to do with setting some z-height, but I haven't been able
+    to reproduce it reliably and therefore wasn't able to isolate it.
+    Usually it appears at the start of the day, with leads to the suspicion 
+    that it relates to some hidden value."""
+    
+    #want to change that POS is a class variable
+    Pos = self.y_coarse_offset
 
     
     #get values from GUI entries
@@ -99,11 +110,12 @@ def makeOverview(self,Multi, Pos):
         msr=im.create_measurement()
     config = msr.active_configuration()
     # overview is called multiple times to identify spot locations for the next spot.
-    if Multi == 1: 
-        print('MULTIRUN')
-        config.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) # current stage position in x [m]
-    else:
-        print('non MULTIRUN')
+    # if Multi == 1: 
+    #     print('MULTIRUN')
+    # current stage position in x [m]
+    config.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) 
+    # else:
+    #     print('non MULTIRUN')
     #must be set first such that settings are available? no.
     xyt_mode = 784# for xyt mode  784 #for xyz_mode 528
     config.set_parameters('ExpControl/scan/range/mode',xyt_mode) 
@@ -142,7 +154,7 @@ def makeOverview(self,Multi, Pos):
     xy_data = [np.sum(config.stack(i).data(), axis = (0, 1)) for i in range(4)]
     self.xy_data = xy_data
     datashape = config.stack(0).data().shape
-    print('xy dimensions of overview image is (%i, %i)'% xy_data[0].shape)
+    #print('xy dimensions of overview image is (%i, %i)'% xy_data[0].shape)
     
     #the data array should have format [time, z, y, x]
     assert datashape == (1,number_frames,np.round(px_num,0),np.round(px_num,0)), \
@@ -185,8 +197,9 @@ def makeOverview(self,Multi, Pos):
 def _Run_meas(*args):  
     """this function splits off Run meas into a separate thread, such
     that the GUI remains responsive and the run may be aborted"""
-    thread = threading.Thread(target=Run_meas, args = args)  
-    thread.start()  
+    self = args[0]
+    self.runthread = threading.Thread(target=Run_meas, args = args)  
+    self.runthread.start()  
 
 def Run_meas(self):
     """
@@ -219,7 +232,7 @@ def Run_meas(self):
         x_roi_new = self.roi_xs
         y_roi_new = self.roi_ys 
     except RecursionError:
-        self.T.insert(tk.END, 'no peaks positions in memory')
+        self.T.insert(tk.END, 'no peaks positions in memory\n')
         raise RecursionError
     #location to save the files collected in next loop
     dateTimeObj = datetime.now()
@@ -232,6 +245,8 @@ def Run_meas(self):
     for i in range(x_roi_new.size):
         x_position = x_roi_new[i]
         y_position = y_roi_new[i]
+        self.T.delete('1.0', tk.END) 
+        self.T.insert(tk.END, "measuring spot %i out of %i\n" % (i, x_roi_new.size)) 
         config = msr.clone(msr.active_configuration())
         applyLaserSettings(self, config)
         applyScannerSettings(self, config)
@@ -239,6 +254,9 @@ def Run_meas(self):
                         enableStream = True, 
                         stream = 'HydraHarp',
                         number_linesteps = 2)
+        # set coarse offset
+        config.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) 
+        #set fine offset
         config.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize_global )#+ ROI_offset)
         config.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize_global )#+ ROI_offset)
         #config.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
@@ -264,7 +282,8 @@ def Run_meas(self):
                 
     #save msr file, move files to subfolder
     msrout = os.path.join(save_path, 'Overview%.2f.msr' % Pos)
-    im.measurement(im.measurement_names()[1]).save_as(msrout)
+    msr.save_as(msrout)
+    im.close(msr)
      
     files = os.listdir('D:/current data/')
     files_ptu = [i for i in files if i.endswith('.ptu')]
@@ -289,6 +308,8 @@ def _timeRun(*args):
     thread = threading.Thread(target=timeRun, args = args)  
     thread.start()  
 def timeRun(self):
+    
+
     Pos = self.y_coarse_offset
     #values are by default read in as tring, have to convert
     pixelsize = float(self.pxsize_overview_value.get()) * 1e-9
@@ -404,7 +425,14 @@ def timeRun(self):
 #                                           '_spot_', files_dat[ii],'.dat'))
 # =============================================================================
     return save_path
-
+def getYOffset(self):
+    im = specpy.Imspector()
+    try:
+        msr = im.active_measurement()
+    except RuntimeError:
+        msr = im.create_measurement()
+    return msr.parameters('ExpControl/scan/range/offsets/coarse/y/g_off')
+    
 def applyScannerSettings(self, config):
     """for most of the measurement a lot of settings are default, they are set
     for the meas object that is passed to this function
@@ -417,19 +445,19 @@ def applyScannerSettings(self, config):
     number_frames = float(self.NoFrames.get())     #Type number of frames t in xyt mode
     #this seems to enable the autofocus, is it really so?
     #config.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', True)
-    config.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
+    #config.set_parameters('ExpControl/scan/range/z/off', 1e-15)#z_position*z_pixelsize)
     
     #setting the pinhole to 1.25AU
     config.set_parameters('Pinhole/pinhole_size', 10e-5)
     warnings.warn('setting the pinhole radius to 1.25AU or 100 micron')
     
-    #set the scanner size
+    # #set the scanner size
     config.set_parameters('ExpControl/scan/range/x/psz',pixelsize)
     config.set_parameters('ExpControl/scan/range/y/psz',pixelsize)
-    #xy offset is set in the function
+    # #xy offset is set in the function
     config.set_parameters('ExpControl/scan/range/x/len',roi_size)
     config.set_parameters('ExpControl/scan/range/y/len',roi_size)
-    #config.set_parameters('ExpControl/scan/range/z/len',0)
+    # #config.set_parameters('ExpControl/scan/range/z/len',0)
     config.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
     config.set_parameters('ExpControl/scan/range/t/res',number_frames)
     
