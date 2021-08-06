@@ -67,10 +67,6 @@ def makeOverview(self):
     Usually it appears at the start of the day, with leads to the suspicion 
     that it relates to some hidden value."""
     
-    #want to change that POS is a class variable
-    Pos = self.y_coarse_offset
-
-    
     #get values from GUI entries
     roi_size = float(self.ROIsize_overview_value.get())*1e-06          # in meter
     Dwelltime= np.around(float(self.dwell_overview_value.get()))*1e-06         # in seconds  
@@ -109,14 +105,6 @@ def makeOverview(self):
         self.T.insert(tk.END, 'creating new measurement, is fine z set correct?\n')
         msr=im.create_measurement()
     config = msr.active_configuration()
-    # overview is called multiple times to identify spot locations for the next spot.
-    # if Multi == 1: 
-    #     print('MULTIRUN')
-    # current stage position in x [m]
-    config.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) 
-    # else:
-    #     print('non MULTIRUN')
-    #must be set first such that settings are available? no.
     xyt_mode = 784# for xyt mode  784 #for xyz_mode 528
     config.set_parameters('ExpControl/scan/range/mode',xyt_mode) 
 
@@ -194,12 +182,6 @@ def makeOverview(self):
 #     self.number_peaks = len(self.roi_xs)
 
     
-def _Run_meas(*args):  
-    """this function splits off Run meas into a separate thread, such
-    that the GUI remains responsive and the run may be aborted"""
-    self = args[0]
-    self.runthread = threading.Thread(target=Run_meas, args = args)  
-    self.runthread.start()  
 
 def Run_meas(self):
     """
@@ -212,17 +194,19 @@ def Run_meas(self):
     None.
 
     """
-    #currently this seems not to be implemented, have to re-add.
-    Pos = self.y_coarse_offset
+    #Y-position in only used for naming purposes
+    ypos = getYOffset()
     
     #values are by default read in as tring, have to convert
     pixelsize_global = float(self.pxsize_overview_value.get()) * 1e-9
 
-    #Activate_Autofocus= bool(act_Autofocus)
+
     
     im = specpy.Imspector() 
     msr = im.active_measurement()
-             
+    
+    #debree, might be usefull sometime
+    #Activate_Autofocus= bool(act_Autofocus)    
 #    if Activate_Autofocus == True: #Activate_Autofocus
 #        M_obj.set_parameters('OlympusIX/scanrange/z/z-stabilizer/enabled', False)
 #        time.sleep(2) 
@@ -237,7 +221,7 @@ def Run_meas(self):
     #location to save the files collected in next loop
     dateTimeObj = datetime.now()
     timestamp = dateTimeObj.strftime("%Y-%b-%d-%H-%M-%S")
-    save_path = os.path.join(self.dataout, timestamp + 'Overview_%.2f_numberSPOTS_%i' % (Pos, len(self.roi_xs)))
+    save_path = os.path.join(self.dataout, timestamp + 'Overview_%.2f_numberSPOTS_%i' % (ypos, len(self.roi_xs)))
     try:
         os.mkdir(save_path)
     except FileExistsError:
@@ -254,8 +238,6 @@ def Run_meas(self):
                         enableStream = True, 
                         stream = 'HydraHarp',
                         number_linesteps = 2)
-        # set coarse offset
-        config.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', Pos) 
         #set fine offset
         config.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize_global )#+ ROI_offset)
         config.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize_global )#+ ROI_offset)
@@ -281,25 +263,20 @@ def Run_meas(self):
             break
                 
     #save msr file, move files to subfolder
-    msrout = os.path.join(save_path, 'Overview%.2f.msr' % Pos)
+    msrout = os.path.join(save_path, 'Overview%.2f.msr' % ypos)
     msr.save_as(msrout)
     im.close(msr)
-     
-    files = os.listdir('D:/current data/')
-    files_ptu = [i for i in files if i.endswith('.ptu')]
-    files_dat = [i for i in files if i.endswith('.dat')]
     
-    n_files_ptu = len(files_ptu)
-    n_files_dat = len(files_dat)
-        
-    for ii in range(n_files_ptu):
-        os.rename('{}{}'.format('D:/current data/',files_ptu[ii]), \
-                  '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, '_spot_', ii, '.ptu'))
-    
-    for ii in range(n_files_dat):
-        os.rename('{}{}'.format('D:/current data/',files_dat[ii]), \
-                  '{}{}{}{}{}{}{}'.format(save_path,'/','Overview_Pos_y', Pos, \
-                                          '_spot_', files_dat[ii],'.dat'))
+    #shift files to save dir
+    files = os.listdir(self.dataout)
+    extensions = ['.png', '.dat', '.ptu', '.txt', 'tiff']
+    files_selected = [i for i in files if i[-4:] in extensions]    
+    for file in files_selected:
+        source = os.path.join(self.dataout, file)
+        dest = os.path.join(save_path, file)
+        os.rename(source, dest)
+
+    self.T.insert(tk.END, 'finished this area\n')
     return save_path
 
 def _timeRun(*args):  
@@ -354,8 +331,10 @@ def timeRun(self):
 #         # msr.activate(config)          
 # =============================================================================
         applyLaserSettings(self, config)
-        applyDetectorSettings(self, config, stream = 'HydraHarp',
-                              enableStream = True)
+        applyDetectorSettings(self, config, 
+                              stream = 'HydraHarp',
+                              enableStream = True, 
+                              number_linesteps = 1)
         # for xyt mode  784    #for xyz_mode 528    #for t 1363
         config.set_parameters('ExpControl/scan/range/mode',1363)
         config.set_parameters('ExpControl/scan/range/t/len', acquisition_time)
@@ -425,13 +404,18 @@ def timeRun(self):
 #                                           '_spot_', files_dat[ii],'.dat'))
 # =============================================================================
     return save_path
-def getYOffset(self):
+def getYOffset():
+    """handles the exception if no measurement exists, gets global y offset"""
+    msr = try_get_active_measurement()
+    return msr.parameters('ExpControl/scan/range/offsets/coarse/y/g_off')
+def try_get_active_measurement():
+    """gets the active measurement, when none exists, creates and returns one"""
     im = specpy.Imspector()
     try:
         msr = im.active_measurement()
     except RuntimeError:
         msr = im.create_measurement()
-    return msr.parameters('ExpControl/scan/range/offsets/coarse/y/g_off')
+    return msr
     
 def applyScannerSettings(self, config):
     """for most of the measurement a lot of settings are default, they are set
@@ -736,6 +720,7 @@ def layout(self):
     nb.add(page2, text='ROI_select')
     
     page3 = ttk.Frame(nb)   
+
     nb.add(page3, text='Powerseries')
     
     page4 = ttk.Frame(nb)
@@ -879,19 +864,19 @@ def layout(self):
     Autofocus= tk.Label(frame_8, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
     Autofocus.grid(row = 2, column = 2, sticky = tk.W)
     var13 = tk.IntVar()
-    Autofocus_01 = tk.Checkbutton(frame_8,  variable = var13, background =colour)
+    Autofocus_01 = tk.Checkbutton(frame_8,  variable = var13, background =colour, state = tk.DISABLED)
     Autofocus_01.grid(row=2, column = 3, sticky = tk.W)
     
     QFS= tk.Label(page1, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
     QFS.grid(row = 2, column = 2, sticky = tk.W)
     var14 = tk.IntVar()
-    QFS_01 = tk.Checkbutton(page1,  variable = var14, background =colour)
+    QFS_01 = tk.Checkbutton(page1,  variable = var14, background =colour, state = tk.DISABLED)
     QFS_01.grid(row=2, column = 3, sticky = tk.W)
     
     Circle= tk.Label(frame_8, text=' Circle:', height = 1 ,foreground= txtcolour, background=colour)
     Circle.grid(row = 3, column = 2, sticky = tk.W)
     var15 = tk.IntVar(value=0)
-    Circle_01 = tk.Checkbutton(frame_8,  variable = var15, background =colour)
+    Circle_01 = tk.Checkbutton(frame_8,  variable = var15, background =colour, state = tk.DISABLED)
     Circle_01.grid(row=3, column = 3, sticky = tk.W)
     
 
@@ -1011,7 +996,8 @@ def layout(self):
     THRES_value_01.insert(tk.END, '0')
     THRES_value_01.grid(row = 6, column = 5, sticky = 'en')
     
-    a=0
+    for child in page3.winfo_children():
+        child.configure(state=tk.DISABLED)
     #put variables from GUI in class variables such that they can be accessed
     #from anywhere
     #sometimes the naming is changed for better readability

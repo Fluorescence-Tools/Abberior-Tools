@@ -23,6 +23,7 @@ import GUISpotFinding as spotFinding
 import time
 import warnings
 import os
+import threading
 #edits by NV
 #this code has numerous serious issues
 #it works, but it contains several features that are considered bad practice
@@ -56,15 +57,13 @@ class AbberiorControl(tk.Tk):
         self.make_layout()
         self.foldername = 'testfolder' # why is this needed?
         button_1 = tk.Button(self.frame_buttons, width = 10,            text = 'Connect',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Connect,anchor = 'w'                  ).grid(row = 0, column = 0)
-        #can get rid of partial function
-        button_2 = tk.Button(self.frame_buttons, width = 9,             text = 'Overview', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(self.makeOverview), anchor = 'w').grid(row = 0, column = 1)
+        button_2 = tk.Button(self.frame_buttons, width = 9,             text = 'Overview', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.makeOverview, anchor = 'w').grid(row = 0, column = 1)
         button_3 = tk.Button(self.frame_buttons, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Findpeak                              ).grid(row = 0,column = 2)
-        #can get rid of partial function
-        button_4 = tk.Button(self.frame_buttons, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = partial(self.Run_meas)                 ).grid(row = 0, column = 3)
+        button_4 = tk.Button(self.frame_buttons, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Run_meas                 ).grid(row = 0, column = 3)
         button_5 = tk.Button(self.frame_buttons, width = 10,height =1,  text = 'Abort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Abort                            ).grid(row = 1, column = 0)
         button_6 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'resetAbort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.reset_abort                           ).grid(row = 1, column = 1)
         button_7 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'timeRun',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.timeRun                         ).grid(row = 1, column = 2)
-        button_8 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.MultiRun_meas                         ).grid(row = 1, column = 3)
+        button_8 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self._MultiRun_meas                         ).grid(row = 1, column = 3)
 
         scale_01_label= tk.Label(self.frame_7, text='Thres:', height = 1,foreground= 'white', background =self.color, font = ('Sans','9','bold'))
         scale_01_label.grid(row = 0, column = 0, sticky = tk.W+tk.N)
@@ -78,8 +77,8 @@ class AbberiorControl(tk.Tk):
                                  foreground= 'white', background =self.color,\
                                      font = ('Sans','9','bold'))
         scale_02_label.grid(row = 0, column = 1, sticky = tk.W+tk.N)
-        scale_02 = tk.Scale(self.frame_7, from_=0, to=500, showvalue=1, background =self.color)
-        scale_02.set(500)
+        scale_02 = tk.Scale(self.frame_7, from_=0, to=2000, showvalue=1, background =self.color)
+        scale_02.set(200)
         scale_02.bind("<ButtonRelease-1>", self.RELEASE)
         scale_02.grid(row = 1, column = 1, sticky = tk.W+tk.N)
         self.scale_02 = scale_02
@@ -102,8 +101,12 @@ class AbberiorControl(tk.Tk):
         self.y_coarse_offset = 0
         func.makeOverview(self)
     def Findpeak(self): # alias
-        self.allpeaks, self.smoothimage = spotFinding.findPeaks(self.overview, smooth_sigma = 1)
-        self.scale_01.config(to = np.max(self.smoothimage)*10)
+        try:
+            self.allpeaks, self.smoothimage = spotFinding.findPeaks(self.overview, smooth_sigma = 1)
+            self.scale_01.config(to = np.max(self.smoothimage)*10)
+        except RecursionError:
+            self.T.delete('1.0', tk.END) 
+            self.T.insert(tk.END, 'could not find peaks, try making an overview image first\n')        
         
     def RELEASE(self, scaleval):
         #when binding this function to a scale release, automatically the value is passed
@@ -127,37 +130,49 @@ class AbberiorControl(tk.Tk):
         self.roi_xs = goodpeaks[:,1] - shape[1] / 2
         self.roi_ys = goodpeaks[:,0] - shape[0] / 2 #center of image is 0
         
-    def Run_meas(self):
-        y_off = func.getYOffset(self)
-        self.y_coarse_offset = y_off
-        func._Run_meas(self)
+    def Run_meas(self):  
+        """this function splits off Run meas into a separate thread, such
+        that the GUI remains responsive and the run may be aborted"""
+        self.runthread = threading.Thread(target=func.Run_meas, args = (self,) )
+        self.runthread.start()  
         
-    
+    def _MultiRun_meas(self):
+        """this function splits off MultiRun meas into a separate thread, such
+        that the GUI remains responsive and the run may be aborted"""
+        self.runthread = threading.Thread(target = self.MultiRun_meas, args = () )
+        self.runthread.start()  
+        
     def MultiRun_meas(self):
-        raise NotImplementedError("the global positioning is not working, the command to imspector does not seem to work")
+        #raise NotImplementedError("the global positioning is not working, the command to imspector does not seem to work")
 
         runs = int(self.multirun.get()) ### define the number of Rois you want to scan
-        roisize = float(self.ROIsize.get())*1e-06# in meter    
-    
-        # current stage position in x [m]
-        y_off = func.getYOffset(self)
-        y_add = y_off + 1.1 * roisize * np.linspace(0,runs-1, runs) ### initial position 
-        print(y_add)
-        for ypos in y_add:
+        roisize = float(self.ROIsize_overview_value.get())*1e-06# in meter
+        
+        coarse_y_start = func.getYOffset()
+
+        for ii in range(runs):
+            #get  current measurement handles
+            msr = func.try_get_active_measurement()
+            config = msr.active_configuration()
+            
+            # set desired coarse stage positions in y [m]
+            #this does not work maybe, because each time the measurement is deleted, so it must be set globally
+            ypos = coarse_y_start + 1.1 * roisize * ii
+            config.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', ypos) 
             print('Overview=',ypos)
-            self.y_coarse_offset = ypos
+            
             self.makeOverview()
             #find peak runs in two steps, first Findpeak, than RELEASE
             self.Findpeak()
             self.RELEASE(1)#1 is a dummy value to avoid an error
-            func._Run_meas(self)
+            func.Run_meas(self)
             #_Run_meas creates self.runthread
             #the next overview must start after the first run has ended
             #calling runthread.join() halts further execution untill runthread has terminated
-            self.runthread.join()
+            #self.runthread.join()
             if self.abort_run:
                 break
-            #Impspector does not like it when measurements are too fast after one another
+            #Imspector does not like it when measurements are too fast after one another
             time.sleep(1)
             #print('sample=',y_add,'#peaks=',number_peaks_new, 'timewait=',(time_wait * number_peaks_new +1))
             #func.SAVING(save_path, a)
