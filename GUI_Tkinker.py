@@ -150,13 +150,14 @@ class AbberiorControl(tk.Tk):
             #find peak runs in two steps, first Findpeak, than RELEASE
             self.Findpeak()
             self.RELEASE(1)#1 is a dummy value to avoid an error
-            #threading in a multirun causes an error, because it does not wait
-            #for the thread to finish before sending the next command.
-            #thread.join should help but is not working yet
-            func.Run_meas(self) ### 1 = TRUE for MUltirun
+            func._Run_meas(self)
+            #_Run_meas creates self.runthread
+            #the next overview must start after the first run has ended
+            #calling runthread.join() halts further execution untill runthread has terminated
+            self.runthread.join()
             if self.abort_run:
                 break
-            #Impspector does not like it when measurements are loo fast after one another
+            #Impspector does not like it when measurements are too fast after one another
             time.sleep(1)
             #print('sample=',y_add,'#peaks=',number_peaks_new, 'timewait=',(time_wait * number_peaks_new +1))
             #func.SAVING(save_path, a)
