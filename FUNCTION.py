@@ -160,6 +160,7 @@ def makeOverview(self):
 
     #display overview image, see 
     #https://stackoverflow.com/questions/10965417/how-to-convert-a-numpy-array-to-pil-image-applying-matplotlib-colormap
+    np.savetxt(os.path.join(path, "overview.txt"), overview, fmt = '%i')
     photo = cm.hot(overview.astype(np.float)/max(overview.flatten())) # cm needs floats
     photo = np.uint8(photo * 255)
     photo = Image.fromarray(photo)
@@ -267,6 +268,10 @@ def Run_meas(self):
     msr.save_as(msrout)
     im.close(msr)
     
+    #save the control settings
+    acquisitionout = os.path.join(save_path, "acquisition_settings.txt")
+    saveAcquisitionSettings(self, acquisitionout)
+    
     #shift files to save dir
     files = os.listdir(self.dataout)
     extensions = ['.png', '.dat', '.ptu', '.txt', 'tiff']
@@ -312,7 +317,7 @@ def timeRun(self):
     #save the overview image and to be imaged spots
     spotFinding.plotpeaks(self.smoothimage, self.goodpeaks,\
                           savedir = self.dataout, isshow = True)
-    acquisition_time = 3
+    acquisition_time = 5
     for i in range(x_roi_new.size):
         print("analysing spot %i out of %i" % (i, len(x_roi_new)))
         x_position = x_roi_new[i]
@@ -358,10 +363,14 @@ def timeRun(self):
         if acquisition_time < 1:
             time.sleep(2) 
         
-        
+        #bugreport
+        #after using the GUI fo some time, after a timeRun was done and the files were being  attempted to be copied to a folder
+        #the last file could not be moved, because it was in use by python.
+        #shutting down the GUI and restarting the python kernel freed the file        
+        #presumably something goes wrong in the handling of acces rights in the c routines.
         #plot t trace of last ptu file
         lastfile = plotTrace.getLastModified(self.dataout)
-        channels = plotTrace.getTraces(lastfile, [0,2])
+        channels = plotTrace.getTraces(lastfile, [0,1,2,3])
         binneddata = plotTrace.plotTrace(channels, (0,acquisition_time), lastfile,\
                                          step = 5e-3, outname = 'inferred')
 
@@ -383,7 +392,10 @@ def timeRun(self):
     #save msr file, move files to subfolder
     msrout = os.path.join(save_path, 'Overview%.2f.msr' % Pos)
     msr.save_as(msrout)
-     
+    
+    #save the control settings
+    acquisitionout = os.path.join(save_path, "acquisition_settings.txt")
+    saveAcquisitionSettings(self, acquisitionout)
     #shift files to save dir
     files = os.listdir(self.dataout)
     extensions = ['.png', '.dat', '.ptu', '.txt', 'tiff']
@@ -404,6 +416,9 @@ def timeRun(self):
 #                                           '_spot_', files_dat[ii],'.dat'))
 # =============================================================================
     return save_path
+
+
+    
 def getYOffset():
     """handles the exception if no measurement exists, gets global y offset"""
     msr = try_get_active_measurement()
@@ -508,6 +523,53 @@ def applyLaserSettings(self, config):
          [Activate485_02, Activate518_02, Activate595_02, Activate561_02, Activate640_02, Activate775_02, False, False],
          [False]*8,[False]*8,[False]*8,[False]*8,[False]*8,[False]*8]) #the last six linesteps are not used
     
+def saveAcquisitionSettings(self, out):
+    """save all settings to a text file. Parameters are taken from self.
+    
+    Ideally it would take all settings
+    in an automated manner, such that as some parameters are added they
+    are automatically exported. Currently this is not the case. NOT ETS"""
+    f = open(out, 'w')
+    f.write("threshold value in pixels*10: " + str(self.scale_01.get())+'\n')
+    f.write("min area: " + str(self.scale_02.get())+'\n')
+    f.write("Rmin: " + str(self.scale_03.get())+'\n')
+
+    f.write("pxsize: " + self.pxsize.get()+'\n')
+    f.write("ROIsize: " + self.ROIsize.get()+'\n')
+    f.write("dwelltime: " + self.dwelltime.get()+'\n')
+    f.write("NoFrames: " + self.NoFrames.get()+'\n')
+    f.write("L485_1: " + str(self.L485_1.get())+'\n')
+    f.write("L518_1: " + str(self.L518_1.get())+'\n')
+    f.write("L561_1: " + str(self.L561_1.get())+'\n')
+    f.write("L640_1: " + str(self.L640_1.get())+'\n')
+    f.write("L595_1: " + str(self.L595_1.get())+'\n')
+    f.write("L775_1: " + str(self.L775_1.get())+'\n')
+    f.write("L485_2: " + str(self.L485_2.get())+'\n')
+    f.write("L518_2: " + str(self.L518_2.get())+'\n')
+    f.write("L561_2: " + str(self.L561_2.get())+'\n')
+    f.write("L640_2: " + str(self.L640_2.get())+'\n')
+    f.write("L595_2: " + str(self.L595_2.get())+'\n')
+    f.write("L775_2: " + str(self.L775_2.get())+'\n')
+    f.write("AutofocusOnROISelect: " + str(self.AutofocusOnROISelect.get())+'\n')
+    f.write("AutofocusOnOverview: " + str(self.AutofocusOnOverview.get())+'\n')
+    f.write("circle: " + str(self.circle.get())+'\n')
+    f.write("peakchannels: " + str(self.peakchannels.get())+'\n')
+    f.write("L485_value: " + self.L485_value.get()+'\n')
+    f.write("self.L518_value: " + self.L518_value.get()+'\n')
+    f.write("L561_value: " + self.L561_value.get()+'\n')
+    f.write("L640_value: " + self.L640_value.get()+'\n')
+    f.write("L595_value: " + self.L595_value.get()+'\n')
+    f.write("L775_value: " + self.L775_value.get()+'\n')
+    f.write("multirun: " + self.multirun.get()+'\n')
+    f.write("laser_overview_value: " +self.laser_overview_value.get()+'\n')
+    f.write("laser_overview_entry: " + self.laser_overview_entry.get()+'\n')
+    f.write("frames_overview_value: " + self.frames_overview_value.get()+'\n')
+    f.write("ROIsize_overview_value: " + self.ROIsize_overview_value.get()+'\n')
+    f.write("dwell_overview_value: " + self.dwell_overview_value.get()+'\n')
+    f.write("pxsize_overview_value: " + self.pxsize_overview_value.get()+'\n')
+    f.close()
+
+
 def SAVING(path,a):
     from docx import Document
     #from docx.shared import Pt
