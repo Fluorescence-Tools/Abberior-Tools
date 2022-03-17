@@ -33,6 +33,7 @@ import specpy
 import numpy as np
 import matplotlib.pyplot as pp
 import os
+import glob
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg#, NavigationToolbar2TkAgg
 import matplotlib.cm as cm
 import tkinter as tk
@@ -66,7 +67,10 @@ def makeOverview(self):
     to reproduce it reliably and therefore wasn't able to isolate it.
     Usually it appears at the start of the day, with leads to the suspicion 
     that it relates to some hidden value."""
-    
+    #at some point an error occurred where the decks of the olympus would be 
+    #reset to position 1 (QUAD and mirror, respectively), which blocked the beam 
+    #and resulted in an empty overview image. But I could not reliably trigger it.
+    # possible the default settings for making a new measurement got changed.
     #get values from GUI entries
     roi_size = float(self.ROIsize_overview_value.get())*1e-06          # in meter
     Dwelltime= np.around(float(self.dwell_overview_value.get()))*1e-06         # in seconds  
@@ -102,7 +106,7 @@ def makeOverview(self):
     try:
         msr = im.active_measurement()
     except:
-        self.T.insert(tk.END, 'creating new measurement, is fine z set correct?\n')
+        self.T.insert(tk.END, 'creating new measurement\n')
         msr=im.create_measurement()
     config = msr.active_configuration()
     xyt_mode = 784# for xyt mode  784 #for xyz_mode 528
@@ -231,7 +235,7 @@ def Run_meas(self):
         x_position = x_roi_new[i]
         y_position = y_roi_new[i]
         self.T.delete('1.0', tk.END) 
-        self.T.insert(tk.END, "measuring spot %i out of %i\n" % (i, x_roi_new.size)) 
+        self.T.insert(tk.END, "measuring spot %i out of %i\n" % (i + 1, x_roi_new.size)) 
         config = msr.clone(msr.active_configuration())
         applyLaserSettings(self, config)
         applyScannerSettings(self, config)
@@ -317,7 +321,7 @@ def timeRun(self):
     #save the overview image and to be imaged spots
     spotFinding.plotpeaks(self.smoothimage, self.goodpeaks,\
                           savedir = self.dataout, isshow = True)
-    acquisition_time = 5
+    acquisition_time = float(self.time.get())
     for i in range(x_roi_new.size):
         print("analysing spot %i out of %i" % (i, len(x_roi_new)))
         x_position = x_roi_new[i]
@@ -325,8 +329,6 @@ def timeRun(self):
         #d = im.active_measurement()
         #seems that the cloned measurement should be automatically activated, need to test
         config = msr.clone(msr.active_configuration())
-
-
 
         #seems that the cloned measurement should be automatically activated, need to test
 # =============================================================================
@@ -343,7 +345,7 @@ def timeRun(self):
         # for xyt mode  784    #for xyz_mode 528    #for t 1363
         config.set_parameters('ExpControl/scan/range/mode',1363)
         config.set_parameters('ExpControl/scan/range/t/len', acquisition_time)
-        config.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize )
+        config.set_parameters('ExpControl/scan/range/x/off', x_position*pixelsize+200e-9 )
         config.set_parameters('ExpControl/scan/range/y/off', y_position*pixelsize )
         # config.set_parameters('ExpControl/gating/tcspc/channels/0/mode', 0) 
         # config.set_parameters('ExpControl/gating/tcspc/channels/0/stream', stream)
@@ -370,7 +372,7 @@ def timeRun(self):
         #presumably something goes wrong in the handling of acces rights in the c routines.
         #plot t trace of last ptu file
         lastfile = plotTrace.getLastModified(self.dataout)
-        channels = plotTrace.getTraces(lastfile, [0,1,2,3])
+        channels = plotTrace.getTraces(lastfile, [0,1,2,3], counttime = 30e-9)
         binneddata = plotTrace.plotTrace(channels, (0,acquisition_time), lastfile,\
                                          step = 5e-3, outname = 'inferred')
 
@@ -392,6 +394,7 @@ def timeRun(self):
     #save msr file, move files to subfolder
     msrout = os.path.join(save_path, 'Overview%.2f.msr' % Pos)
     msr.save_as(msrout)
+    im.close(msr)
     
     #save the control settings
     acquisitionout = os.path.join(save_path, "acquisition_settings.txt")
@@ -417,20 +420,163 @@ def timeRun(self):
 # =============================================================================
     return save_path
 
+def setPositions(self):
+    positionWindow = tk.Toplevel(self.parent)
+    #vScrollbar = tk.Scrollbar(positionWindow, orient = 'vertical')
+    #vScrollbar.grid(row = 2, column = 2, sticky = "ns")
+    #positionWindow.configure(yscrollcommand=vScrollbar.set)
+    mtomm = 1e3
+    xlabel = tk.Label(positionWindow, text = 'x-position (mm)')
+    xlabel.grid(row = 0, column = 0)
+    #xlabel.pack()
+    ylabel = tk.Label(positionWindow, text = 'y-position (mm)')
+    ylabel.grid(row = 0, column = 1)
+    #ylabel.pack()
+    npos = 65
+    rows = []
+    for i in range(npos):
+        cols = []
+        for j in range(2):
+            e = tk.Entry(positionWindow, relief=tk.RIDGE)
+            e.grid(row=i+1, column=j, sticky=tk.NSEW)
+            try:
+                value = str(self.positions[i][j]*mtomm)
+            except (IndexError, RecursionError):
+                value = '0'
+            e.insert(tk.END, value)
+            cols.append(e)
+        rows.append(cols)
+    
+    def savePos():
+        positions = []
+        for row in rows:
+            x = float(row[0].get())/mtomm
+            y = float(row[1].get())/mtomm
+            if x == 0 and y == 0: continue
+            positions.append([x,y])
+        print(positions)
+        self.positions = positions
+        positionWindow.destroy()
+    def getPos():
+        #get coarse position
+        im = specpy.Imspector()
+        msr = im.active_measurement()
+        x = msr.parameters('ExpControl/scan/range/offsets/coarse/x/g_off')
+        y = msr.parameters('ExpControl/scan/range/offsets/coarse/y/g_off')
+        #overwrite the values at rowid
+        rowid = int(rowidEntry.get())
+        for value, column in zip([x,y], [0,1]):
+            rows[rowid][column].delete(0, tk.END)
+            rows[rowid][column].insert(0, str(value*mtomm))
+        #incr rowidEntry
+        rowid += 1
+        rowidEntry.delete(0, tk.END)
+        rowidEntry.insert(0, str(rowid))
+        pass
+    #get coarse position
+    #overwrite positions at whichrowEntry
+    #incr rowEntry
+        
+    tk.Button(positionWindow, text = 'add position to row:', command = getPos)\
+        .grid(row = npos + 2, column = 0)
+    rowidEntry = tk.Entry(positionWindow)
+    rowidEntry.grid(row = npos+2, column = 1)
+    rowidEntry.insert(tk.END, 0)
+                
+    tk.Label(positionWindow, text = "zero entries are ignored" ).grid()
+    tk.Button(positionWindow, text='save & Close', command=savePos).grid()
+    
+def get_timestamp():
+    return datetime.now().strftime("%Y-%b-%d-%H-%M-%S")
 
+def runPositions(self):
+    im = specpy.Imspector()
+    #issue: putting below code in a function creates a RunTimeError, 
+    #therefore it appears in multiple places
+    try:
+        msr = im.active_measurement()
+    except:
+        self.T.insert(tk.END, 'creating new measurement\n')
+        msr=im.create_measurement()
+    save_path = os.path.join(self.dataout, get_timestamp() + '%i positions' % 
+                             (len(self.positions)))
+    try:
+        os.mkdir(save_path)
+    except FileExistsError:
+        self.T.insert(tk.END, 'saving directory already exists, skipping')
+    for i, position in enumerate(self.positions):
+        config = msr.clone(msr.active_configuration())
+        applyLaserSettings(self, config)
+        applyScannerSettings(self, config)
+        applyDetectorSettings(self, config, 
+                    enableStream = True, 
+                    stream = 'HydraHarp',
+                    number_linesteps = 2)
+        x,y = position
+        #set coarse offset
+        coarse_path = "ExpControl/scan/range/offsets/coarse/"
+        config.set_parameters(coarse_path + 'x/g_off', x)
+        time.sleep(2)#need to give time for coarse movement
+        config.set_parameters(coarse_path + 'y/g_off', y)
+        time.sleep(2)#need to give time for coarse movement
+        #set fine offset
+        config.set_parameters('ExpControl/scan/range/x/off', 0)
+        config.set_parameters('ExpControl/scan/range/y/off', 0)
+        time.sleep(1)
+        xyt_mode = 784# for xyt mode  784 #for xyz_mode 528
+        config.set_parameters('ExpControl/scan/range/mode',xyt_mode)
+        im.run(msr)
+        time.sleep(1) #in seconds, avoid crashing if image time is short
+        
+        #append location stamp to ptu file
+        filelist = glob.glob(self.dataout + r'\*')
+        lastfile = max(filelist, key = os.path.getctime)
+        dest = lastfile[:-4] + 'area_%ix_%.3fy_%.3f' % (i, x*1e3, y*1e3) + lastfile[-4:]
+        os.rename(lastfile, dest)
+        #rename last created ptu file TODO
+        if self.abort_run:
+            self.T.delete('1.0', tk.END) 
+            self.T.insert(tk.END, 'aborting measurement run\n')
+            self.T.insert(tk.END, 'be sure to reset abort before your next run\n')
+            break
+    
+    #save msr file, move files to subfolder
+    msrout = os.path.join(save_path, 'Positions.msr' )
+    print(msrout)
+    msr.save_as(msrout)
+    im.close(msr)
+    
+    #save the control settings
+    acquisitionout = os.path.join(save_path, "acquisition_settings.txt")
+    saveAcquisitionSettings(self, acquisitionout)
+    
+    #shift files to save dir
+    files = os.listdir(self.dataout)
+    extensions = ['.png', '.dat', '.ptu', '.txt', 'tiff']
+    files_selected = [i for i in files if i[-4:] in extensions]    
+    for file in files_selected:
+        source = os.path.join(self.dataout, file)
+        dest = os.path.join(save_path, file)
+        os.rename(source, dest)
+
+    self.T.insert(tk.END, 'finished multi position run\n')
     
 def getYOffset():
     """handles the exception if no measurement exists, gets global y offset"""
     msr = try_get_active_measurement()
     return msr.parameters('ExpControl/scan/range/offsets/coarse/y/g_off')
-def try_get_active_measurement():
-    """gets the active measurement, when none exists, creates and returns one"""
-    im = specpy.Imspector()
-    try:
-        msr = im.active_measurement()
-    except RuntimeError:
-        msr = im.create_measurement()
-    return msr
+# =============================================================================
+# def try_get_active_measurement():
+#     """gets the active measurement, when none exists, creates and returns one
+#     issue: passing msr to another function creates a RuntimeError, making this 
+#     function useless"""
+#     im = specpy.Imspector()
+#     try:
+#         msr = im.active_measurement()
+#     except RuntimeError:
+#         msr = im.create_measurement()
+#     return msr
+# =============================================================================
     
 def applyScannerSettings(self, config):
     """for most of the measurement a lot of settings are default, they are set
@@ -567,135 +713,141 @@ def saveAcquisitionSettings(self, out):
     f.write("ROIsize_overview_value: " + self.ROIsize_overview_value.get()+'\n')
     f.write("dwell_overview_value: " + self.dwell_overview_value.get()+'\n')
     f.write("pxsize_overview_value: " + self.pxsize_overview_value.get()+'\n')
+    try:
+        positions = self.positions
+    except: positions = 0
+    f.write("coarse positions: \n" + str(positions)+'\n')
     f.close()
 
 
-def SAVING(path,a):
-    from docx import Document
-    #from docx.shared import Pt
-    #from docx.shared import Length
-    #from docx.shared import RGBColor
-    #from docx.enum.text import WD_LINE_SPACING
-    #from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Inches
-    #import matplotlib as pp
-    
-    if a==0:
-        #### functions #####
-        def GT(m_name):
-            import matplotlib as pp
-            
-            if m_name == 0:
-                stk_names = meas.configuration(m_name).stack_names()
-                stk = meas.stack(stk_names[0])
-                pix_data = stk.data()
-                im = np.mean(pix_data, axis=3)[0]
-                fig = pp.figure(figsize=(6,6))
-                pp.axis('off')
-                pp.imshow(im, cmap ='hot' )
-                pp.text(10, 30, 'Overview',color='white', fontsize=15, fontweight='bold')
-                pp.savefig('D:/current data/testa.tiff',bbox_inches='tight')
-                pp.close(fig)
-                document.add_picture('D:/current data/testa.tiff', width=Inches(5.5))
-            else:
-                stk_names = meas.configuration(m_name).stack_names()
-                stk_g1 = meas.stack(stk_names[0])
-                stk_g2 = meas.stack(stk_names[2])
-                stk_r1 = meas.stack(stk_names[1])
-                stk_r2 = meas.stack(stk_names[3])
-                
-                pix_data_green = stk_g1.data() + stk_g2.data()
-                pix_data_red = stk_r1.data() + stk_r2.data()
-                im_g = np.mean(pix_data_green, axis=1)[0]
-                im_r = np.mean(pix_data_red, axis=1)[0]
-                
-                    
-                fig = pp.figure(figsize=(6,6))
-                pp.subplot(221)
-                pp.imshow(im_g, cmap ='hot' )
-                pp.axis('off')
-                pp.text(3, 10, '{}{}'.format(meas_names[m_name],': green'),color='white', fontsize=15, fontweight='bold')
-                pp.subplot(222)
-                pp.imshow(im_r, cmap ='hot' )
-                pp.axis('off')
-                pp.text(3, 10, '{}{}'.format(meas_names[m_name],': red'),color='white', fontsize=15, fontweight='bold')
-                pp.savefig('D:/current data/testa.tiff',bbox_inches='tight')
-                pp.close(fig)
-                document.add_picture('D:/current data/testa.tiff', width=Inches(5.5))
-                
-                
-        
-        
-        
-        def test(dicta, levels):
-                
-                
-                if type(dicta) == type(True) or type(dicta) == int or type(dicta) == list():
-                    print('level0')
-                else:
-                    for i in dicta.keys():
-                        style = document.styles['Normal']
-                        paragraph_format = style.paragraph_format
-                        
-                        document.add_page_break()
-                        p1_header = document.add_heading(str(i), level=1)
-                        p1_header.paragraph_format.left_indent = Inches(0.0)
-                        
-                        if type(dicta[i]) == int or type(dicta[i]) == type(True) or type(dicta[i]) == str :#or type(dicta[i]) == list:
-                            p1 = document.add_paragraph(str(dicta[i]))
-                            p1.paragraph_format.left_indent = Inches(0.5)
-                            
-                        elif type(dicta[i]) == dict:
-                            for ii in dicta[i].keys():
-                                p2_header = document.add_heading(str(ii),level = 2)
-                                p2_header.paragraph_format.left_indent = Inches(0.5)
-                                if type(dicta[i][ii]) == int or type(dicta[i][ii]) == type(True) or type(dicta[i][ii]) == str or type(dicta[i][ii]) == list or type(dicta[i][ii]) == float:
-                                    p2 = document.add_paragraph(str(dicta[i][ii]))
-                                    p2.paragraph_format.left_indent = Inches(0.5)
-                                    
-                                else:
-                                    for iii in dicta[i][ii].keys():
-                                        p3_header = document.add_heading(str(iii),level = 3)
-                                        p3_header.paragraph_format.left_indent = Inches(1)
-                                        if type(dicta[i][ii][iii]) == int or type(dicta[i][ii][iii]) == type(True) or type(dicta[i][ii][iii]) == str or type(dicta[i][ii][iii]) == list or type(dicta[i][ii][iii]) == float:
-                                               p3 = document.add_paragraph(str(dicta[i][ii][iii]))
-                                               p3.paragraph_format.left_indent = Inches(1)
-                                               
-                                        else:
-                                            for iiii in dicta[i][ii][iii].keys():
-                                                p4_header = document.add_heading(str(iiii),level = 4)
-                                                p4_header.paragraph_format.left_indent = Inches(2)
-                                                p4 =document.add_paragraph(str(dicta[i][ii][iii][iiii]))
-                                                p4.paragraph_format.left_indent = Inches(2)
-                                                
-        
-        document = Document()
-        
-        im = specpy.Imspector()
-        meas = im.measurement(im.measurement_names()[1])
-        a = meas.parameter('')    
-        document.add_heading('{}{}'.format('Measurement-Report:                                                ',a['Measurement']['MeasTime']), 0) 
-        document.add_heading('Important Parameter', level=2)
-        table = document.add_table(rows=6, cols=2)
-        cell = table.cell(0,0)
-        cell.text = 'Parameter'
-        cell = table.cell(0,1)  
-        cell.text = 'Value'
-        
-        meas_names = meas.configuration_names()
-        
-        document.add_page_break()
-        for ii in range(len(meas_names)):
-            GT(ii)    
-        table.style = 'Light Grid Accent 1'
-        test(a,0)                   
-        document.save('{}{}'.format(path,'/Meas_protocol.docx'))
-    
-    else:
-        print('saving works')
-        document = Document()
-        document.add_heading('this is just a test document')
-        document.save('{}{}'.format(path,'/Meas_protocol.docx'))
+# =============================================================================
+# def SAVING(path,a):
+#     from docx import Document
+#     #from docx.shared import Pt
+#     #from docx.shared import Length
+#     #from docx.shared import RGBColor
+#     #from docx.enum.text import WD_LINE_SPACING
+#     #from docx.enum.text import WD_ALIGN_PARAGRAPH
+#     from docx.shared import Inches
+#     #import matplotlib as pp
+#     
+#     if a==0:
+#         #### functions #####
+#         def GT(m_name):
+#             import matplotlib as pp
+#             
+#             if m_name == 0:
+#                 stk_names = meas.configuration(m_name).stack_names()
+#                 stk = meas.stack(stk_names[0])
+#                 pix_data = stk.data()
+#                 im = np.mean(pix_data, axis=3)[0]
+#                 fig = pp.figure(figsize=(6,6))
+#                 pp.axis('off')
+#                 pp.imshow(im, cmap ='hot' )
+#                 pp.text(10, 30, 'Overview',color='white', fontsize=15, fontweight='bold')
+#                 pp.savefig('D:/current data/testa.tiff',bbox_inches='tight')
+#                 pp.close(fig)
+#                 document.add_picture('D:/current data/testa.tiff', width=Inches(5.5))
+#             else:
+#                 stk_names = meas.configuration(m_name).stack_names()
+#                 stk_g1 = meas.stack(stk_names[0])
+#                 stk_g2 = meas.stack(stk_names[2])
+#                 stk_r1 = meas.stack(stk_names[1])
+#                 stk_r2 = meas.stack(stk_names[3])
+#                 
+#                 pix_data_green = stk_g1.data() + stk_g2.data()
+#                 pix_data_red = stk_r1.data() + stk_r2.data()
+#                 im_g = np.mean(pix_data_green, axis=1)[0]
+#                 im_r = np.mean(pix_data_red, axis=1)[0]
+#                 
+#                     
+#                 fig = pp.figure(figsize=(6,6))
+#                 pp.subplot(221)
+#                 pp.imshow(im_g, cmap ='hot' )
+#                 pp.axis('off')
+#                 pp.text(3, 10, '{}{}'.format(meas_names[m_name],': green'),color='white', fontsize=15, fontweight='bold')
+#                 pp.subplot(222)
+#                 pp.imshow(im_r, cmap ='hot' )
+#                 pp.axis('off')
+#                 pp.text(3, 10, '{}{}'.format(meas_names[m_name],': red'),color='white', fontsize=15, fontweight='bold')
+#                 pp.savefig('D:/current data/testa.tiff',bbox_inches='tight')
+#                 pp.close(fig)
+#                 document.add_picture('D:/current data/testa.tiff', width=Inches(5.5))
+#                 
+#                 
+#         
+#         
+#         
+#         def test(dicta, levels):
+#                 
+#                 
+#                 if type(dicta) == type(True) or type(dicta) == int or type(dicta) == list():
+#                     print('level0')
+#                 else:
+#                     for i in dicta.keys():
+#                         style = document.styles['Normal']
+#                         paragraph_format = style.paragraph_format
+#                         
+#                         document.add_page_break()
+#                         p1_header = document.add_heading(str(i), level=1)
+#                         p1_header.paragraph_format.left_indent = Inches(0.0)
+#                         
+#                         if type(dicta[i]) == int or type(dicta[i]) == type(True) or type(dicta[i]) == str :#or type(dicta[i]) == list:
+#                             p1 = document.add_paragraph(str(dicta[i]))
+#                             p1.paragraph_format.left_indent = Inches(0.5)
+#                             
+#                         elif type(dicta[i]) == dict:
+#                             for ii in dicta[i].keys():
+#                                 p2_header = document.add_heading(str(ii),level = 2)
+#                                 p2_header.paragraph_format.left_indent = Inches(0.5)
+#                                 if type(dicta[i][ii]) == int or type(dicta[i][ii]) == type(True) or type(dicta[i][ii]) == str or type(dicta[i][ii]) == list or type(dicta[i][ii]) == float:
+#                                     p2 = document.add_paragraph(str(dicta[i][ii]))
+#                                     p2.paragraph_format.left_indent = Inches(0.5)
+#                                     
+#                                 else:
+#                                     for iii in dicta[i][ii].keys():
+#                                         p3_header = document.add_heading(str(iii),level = 3)
+#                                         p3_header.paragraph_format.left_indent = Inches(1)
+#                                         if type(dicta[i][ii][iii]) == int or type(dicta[i][ii][iii]) == type(True) or type(dicta[i][ii][iii]) == str or type(dicta[i][ii][iii]) == list or type(dicta[i][ii][iii]) == float:
+#                                                p3 = document.add_paragraph(str(dicta[i][ii][iii]))
+#                                                p3.paragraph_format.left_indent = Inches(1)
+#                                                
+#                                         else:
+#                                             for iiii in dicta[i][ii][iii].keys():
+#                                                 p4_header = document.add_heading(str(iiii),level = 4)
+#                                                 p4_header.paragraph_format.left_indent = Inches(2)
+#                                                 p4 =document.add_paragraph(str(dicta[i][ii][iii][iiii]))
+#                                                 p4.paragraph_format.left_indent = Inches(2)
+#                                                 
+#         
+#         document = Document()
+#         
+#         im = specpy.Imspector()
+#         meas = im.measurement(im.measurement_names()[1])
+#         a = meas.parameter('')    
+#         document.add_heading('{}{}'.format('Measurement-Report:                                                ',a['Measurement']['MeasTime']), 0) 
+#         document.add_heading('Important Parameter', level=2)
+#         table = document.add_table(rows=6, cols=2)
+#         cell = table.cell(0,0)
+#         cell.text = 'Parameter'
+#         cell = table.cell(0,1)  
+#         cell.text = 'Value'
+#         
+#         meas_names = meas.configuration_names()
+#         
+#         document.add_page_break()
+#         for ii in range(len(meas_names)):
+#             GT(ii)    
+#         table.style = 'Light Grid Accent 1'
+#         test(a,0)                   
+#         document.save('{}{}'.format(path,'/Meas_protocol.docx'))
+#     
+#     else:
+#         print('saving works')
+#         document = Document()
+#         document.add_heading('this is just a test document')
+#         document.save('{}{}'.format(path,'/Meas_protocol.docx'))
+# =============================================================================
        
 def layout(self):
     root = self.parent
@@ -751,7 +903,7 @@ def layout(self):
     labtext_1.grid()
     
     
-    T = tk.Text(frame_top4, height=10, width=37)
+    T = tk.Text(frame_top4, height=10, width=45)
     T.grid()
 
     style = ttk.Style()
@@ -914,7 +1066,7 @@ def layout(self):
     frames_01.grid(row = 3, column = 1, sticky = 'w')
     
     
-    MultiRUN= tk.Label(frame_8, text=' Focus search:', height = 1, foreground= txtcolour, background=colour)
+    MultiRUN = tk.Label(frame_8, text=' #Multi:', height = 1, foreground= txtcolour, background=colour)
     MultiRUN.grid(row = 0, column = 2, sticky = 'w')
     MultiRUN_01 = tk.Entry(frame_8,width = 8)
     MultiRUN_01.insert(tk.END, '3')
@@ -923,23 +1075,33 @@ def layout(self):
     MultiRUN_s= tk.Label(frame_8, text='', height = 1, foreground= txtcolour, background=colour)
     MultiRUN_s.grid(row = 0, column = 0, sticky = 'w')
     
+    time = tk.Label(frame_8, text=' time (s):', height = 1, foreground= txtcolour, background=colour)
+    time.grid(row = 2, column = 2, sticky = 'w')
+    time_e = tk.Entry(frame_8, width = 8)
+    time_e.insert(tk.END, '3')
+    time_e.grid(row = 2, column = 3, sticky = 'w')
+
+    #MultiRUN_s= tk.Label(frame_8, text='', height = 1, foreground= txtcolour, background=colour)
+    #MultiRUN_s.grid(row = 0, column = 0, sticky = 'w')
+    
+    
     Autofocus= tk.Label(frame_8, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
-    Autofocus.grid(row = 2, column = 2, sticky = tk.W)
+    Autofocus.grid(row = 3, column = 2, sticky = tk.W)
     var13 = tk.IntVar()
     Autofocus_01 = tk.Checkbutton(frame_8,  variable = var13, background =colour, state = tk.DISABLED)
-    Autofocus_01.grid(row=2, column = 3, sticky = tk.W)
+    Autofocus_01.grid(row=3, column = 3, sticky = tk.W)
     
     QFS= tk.Label(page1, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
-    QFS.grid(row = 2, column = 2, sticky = tk.W)
+    QFS.grid(row = 3, column = 2, sticky = tk.W)
     var14 = tk.IntVar()
     QFS_01 = tk.Checkbutton(page1,  variable = var14, background =colour, state = tk.DISABLED)
-    QFS_01.grid(row=2, column = 3, sticky = tk.W)
+    QFS_01.grid(row=3, column = 3, sticky = tk.W)
     
     Circle= tk.Label(frame_8, text=' Circle:', height = 1 ,foreground= txtcolour, background=colour)
-    Circle.grid(row = 3, column = 2, sticky = tk.W)
+    Circle.grid(row = 4, column = 2, sticky = tk.W)
     var15 = tk.IntVar(value=0)
     Circle_01 = tk.Checkbutton(frame_8,  variable = var15, background =colour, state = tk.DISABLED)
-    Circle_01.grid(row=3, column = 3, sticky = tk.W)
+    Circle_01.grid(row=4, column = 3, sticky = tk.W)
     
 
     
@@ -1095,6 +1257,7 @@ def layout(self):
     self.AutofocusOnROISelect = var13
     self.AutofocusOnOverview = var14
     self.circle = var15
+    self.time = time_e #e for entry
     self.peakchannels = peakchannels
     self.L485_value = L485_value_01 #don't need this 01 appendix
     self.L518_value = L518_value_01

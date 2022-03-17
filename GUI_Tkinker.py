@@ -9,7 +9,7 @@ Info   : The code is mainly splitted into three part.
             2. This script contains the main code for GUI. The main layout is imported from LAYOUT.py 
                which contains the coarse appearance of GUI.
             3. The function which are defined here ONLY defines the Buttons in GUI
-         Due to dynamic of code some parameter need to be defined in this script. They should not be transfered elsewhere.
+         Due to dynamic of code some parameter need to be defined in this script. They should not be transferred elsewhere.
 
 """
 # import packages and modules####
@@ -55,16 +55,20 @@ class AbberiorControl(tk.Tk):
         self.parent = parent
         self.dataout = dataout #used as a path for saving stuff
         self.make_layout()
-        self.foldername = 'testfolder' # why is this needed?
-        button_1 = tk.Button(self.frame_buttons, width = 10,            text = 'Connect',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Connect,anchor = 'w'                  ).grid(row = 0, column = 0)
+        #self.foldername = 'testfolder' # why is this needed?
+        button_1 = tk.Button(self.frame_buttons, width = 9,            text = 'Connect',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Connect,anchor = 'w'                  ).grid(row = 0, column = 0)
         button_2 = tk.Button(self.frame_buttons, width = 9,             text = 'Overview', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.makeOverview, anchor = 'w').grid(row = 0, column = 1)
-        button_3 = tk.Button(self.frame_buttons, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Findpeak                              ).grid(row = 0,column = 2)
+        button_3 = tk.Button(self.frame_buttons, width = 9,             text = 'FindPeak', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Findpeak                              ).grid(row = 1,column = 1)
         button_4 = tk.Button(self.frame_buttons, width = 9,             text = 'Run',      activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Run_meas                 ).grid(row = 0, column = 3)
-        button_5 = tk.Button(self.frame_buttons, width = 10,height =1,  text = 'Abort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Abort                            ).grid(row = 1, column = 0)
-        button_6 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'resetAbort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.reset_abort                           ).grid(row = 1, column = 1)
-        button_7 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'timeRun',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.timeRun                         ).grid(row = 1, column = 2)
+        button_5 = tk.Button(self.frame_buttons, width = 9,height =1,  text = 'Abort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.Abort                            ).grid(row = 0, column = 2)
+        button_6 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'resetAbort',    activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.reset_abort                           ).grid(row = 1, column = 2)
+        button_7 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'timeRun',  activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.timeRun                         ).grid(row = 0, column = 4)
         button_8 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'MultiRun', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self._MultiRun_meas                         ).grid(row = 1, column = 3)
-
+        button_9 = tk.Button(self.frame_buttons, width = 9, height =1,  text = 'MultiTime', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self._MultiTime                         ).grid(row = 1, column = 4)
+        button_10 = tk.Button(self.frame_buttons, width = 14, height =1,  text = 'Set Positions', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self.setPositions                         ).grid(row = 0, column = 5)
+        button_11 = tk.Button(self.frame_buttons, width = 14, height =1,  text = 'Run Positions', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self._runPositions                         ).grid(row = 1, column = 5)
+        button_12 = tk.Button(self.frame_buttons, width = 14, height =1,  text = 'Multi Positions', activebackground= 'green',font = ('Sans','9','bold'),activeforeground= 'red', command = self._MultiPositions                         ).grid(row = 1, column = 6)
+        
         scale_01_label= tk.Label(self.frame_7, text='Thres:', height = 1,foreground= 'white', background =self.color, font = ('Sans','9','bold'))
         scale_01_label.grid(row = 0, column = 0, sticky = tk.W+tk.N)
         scale_01 = tk.Scale(self.frame_7, from_=0, to=200, showvalue=1, background =self.color)
@@ -164,8 +168,54 @@ class AbberiorControl(tk.Tk):
             self.makeOverview()
             #find peak runs in two steps, first Findpeak, than RELEASE
             self.Findpeak()
-            self.RELEASE(1)#1 is a dummy value to avoid an error
+            #self.RELEASE(1)#1 is a dummy value to avoid an error
             func.Run_meas(self)
+            #_Run_meas creates self.runthread
+            #the next overview must start after the first run has ended
+            #calling runthread.join() halts further execution untill runthread has terminated
+            #self.runthread.join()
+            if self.abort_run:
+                break
+            #Imspector does not like it when measurements are too fast after one another
+            time.sleep(1)
+            #print('sample=',y_add,'#peaks=',number_peaks_new, 'timewait=',(time_wait * number_peaks_new +1))
+            #func.SAVING(save_path, a)
+    def _MultiTime(self):
+        """this function splits off MultiRun meas into a separate thread, such
+        that the GUI remains responsive and the run may be aborted"""
+        self.runthread = threading.Thread(target = self.MultiTime, args = () )
+        self.runthread.start()  
+        
+    def MultiTime(self):
+        #raise NotImplementedError("the global positioning is not working, the command to imspector does not seem to work")
+
+        runs = int(self.multirun.get()) ### define the number of Rois you want to scan
+        roisize = float(self.ROIsize_overview_value.get())*1e-06# in meter
+        
+        coarse_y_start = func.getYOffset()
+
+        for ii in range(runs):
+            #adding some random time delays to hope it prevents crashing
+            time.sleep(1)
+            #get  current measurement handles
+            msr = func.try_get_active_measurement()
+            config = msr.active_configuration()
+            
+            # set desired coarse stage positions in y [m]
+            #this does not work maybe, because each time the measurement is deleted, so it must be set globally
+            ypos = coarse_y_start + 1.1 * roisize * ii
+            config.set_parameters('ExpControl/scan/range/offsets/coarse/y/g_off', ypos) 
+            print('Overview=',ypos)
+            
+            self.makeOverview()
+            #adding some random time delays to hope it prevents crashing
+            time.sleep(1)
+            #find peak runs in two steps, first Findpeak, than RELEASE
+            self.Findpeak()
+            #adding some random time delays to hope it prevents crashing
+            time.sleep(1)
+            self.RELEASE(1)#1 is a dummy value to avoid an error
+            func.timeRun(self)
             #_Run_meas creates self.runthread
             #the next overview must start after the first run has ended
             #calling runthread.join() halts further execution untill runthread has terminated
@@ -183,6 +233,29 @@ class AbberiorControl(tk.Tk):
     def timeRun(self):
         self.y_coarse_offset = 0 #to change later, badly implemented
         func._timeRun(self)
+    def setPositions(self):
+        #open a new window where a list of positions can be set.
+        func.setPositions(self)
+    def _runPositions(self):
+        """this function splits off runPositions meas into a separate thread, such
+        that the GUI remains responsive and the run may be aborted"""
+        self.runthread = threading.Thread(target = func.runPositions, \
+                                          args = (self,) )
+        self.runthread.start()
+    def _MultiPositions(self):
+        self.runthread = threading.Thread(target = self.MultiPositions, \
+                                          args = () )
+        self.runthread.start()
+    def MultiPositions(self):
+        runs = int(self.multirun.get())
+        for run in range(runs):
+            self.T.delete("1.0", tk.END)
+            self.T.insert(tk.END, 'measuring all positions, loop %i\n' % run)
+            func.runPositions(self)
+            if self.abort_run:
+                break
+        pass
+
 #Type here the directory of GUI python file is stored: path = 'C:/Users/Abberior_admin/Desktop/GUI/'
 dataout = r'D:\current data' 
 root= tk.Tk()
