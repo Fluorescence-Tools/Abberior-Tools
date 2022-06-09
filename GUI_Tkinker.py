@@ -156,7 +156,12 @@ class AbberiorControl(tk.Tk):
 
         for ii in range(runs):
             #get  current measurement handles
-            msr = func.try_get_active_measurement()
+            im = specpy.Imspector()
+            try:
+                msr = im.active_measurement()
+            except:
+                self.T.insert(tk.END, 'creating new measurement\n')
+                msr=im.create_measurement()
             config = msr.active_configuration()
             
             # set desired coarse stage positions in y [m]
@@ -168,7 +173,8 @@ class AbberiorControl(tk.Tk):
             self.makeOverview()
             #find peak runs in two steps, first Findpeak, than RELEASE
             self.Findpeak()
-            #self.RELEASE(1)#1 is a dummy value to avoid an error
+            self.RELEASE(1)#1 is a dummy value to avoid an error
+            #this function does the work
             func.Run_meas(self)
             #_Run_meas creates self.runthread
             #the next overview must start after the first run has ended
@@ -198,7 +204,12 @@ class AbberiorControl(tk.Tk):
             #adding some random time delays to hope it prevents crashing
             time.sleep(1)
             #get  current measurement handles
-            msr = func.try_get_active_measurement()
+            im = specpy.Imspector()
+            try:
+                msr = im.active_measurement()
+            except:
+                self.T.insert(tk.END, 'creating new measurement\n')
+                msr=im.create_measurement()
             config = msr.active_configuration()
             
             # set desired coarse stage positions in y [m]
@@ -215,6 +226,7 @@ class AbberiorControl(tk.Tk):
             #adding some random time delays to hope it prevents crashing
             time.sleep(1)
             self.RELEASE(1)#1 is a dummy value to avoid an error
+            #function that does the work
             func.timeRun(self)
             #_Run_meas creates self.runthread
             #the next overview must start after the first run has ended

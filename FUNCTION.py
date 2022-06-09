@@ -73,7 +73,7 @@ def makeOverview(self):
     # possible the default settings for making a new measurement got changed.
     #get values from GUI entries
     roi_size = float(self.ROIsize_overview_value.get())*1e-06          # in meter
-    Dwelltime= np.around(float(self.dwell_overview_value.get()))*1e-06         # in seconds  
+    dwelltime= np.around(float(self.dwell_overview_value.get()))*1e-06         # in seconds  
     number_frames = int(self.frames_overview_value.get())      #Type number of frames t in xyt mode
     #z_position = 0        # in meter
     x_pixelsize = float(self.pxsize_overview_value.get())*1e-09       # in meter
@@ -124,7 +124,7 @@ def makeOverview(self):
     config.set_parameters('ExpControl/scan/range/z/psz',z_pixelsize)
     config.set_parameters('ExpControl/scan/range/x/len',roi_size)
     config.set_parameters('ExpControl/scan/range/y/len',roi_size)
-    config.set_parameters('ExpControl/scan/dwelltime', Dwelltime)
+    config.set_parameters('ExpControl/scan/dwelltime', dwelltime)
     config.set_parameters('ExpControl/scan/range/t/res',number_frames)
     config.set_parameters('ExpControl/scan/range/x/off', 0)
     config.set_parameters('ExpControl/scan/range/y/off', 0)
@@ -186,8 +186,27 @@ def makeOverview(self):
 #     self.roi_ys = np.array([random.random() *10 for i in range(3)])
 #     self.number_peaks = len(self.roi_xs)
 
-    
+def pauseMsr(self):
+    im = specpy.Imspector()
+    msr = im.active_measurement()
+    im.pause(msr)
+    self.T.insert(tk.END, 'paused measurement\n')
 
+def pauseAfterTimeout(func):
+    def inner(*args, **kwargs):
+        #run parallel imer, which trigger pauseMsr after timeout
+        self = args[0]
+        timeout = float(self.timeout.get())
+        t = threading.Timer(timeout, pauseMsr, args = (self, ))
+        timeoutThread = threading.Thread(target = t.start, args = ()) #run t in separate threat
+        timeoutThread.start()
+        #run actual function
+        func(*args, **kwargs)
+        #if the measurement completes before the timer finishes, stop it
+        t.cancel() 
+    return inner
+
+@pauseAfterTimeout
 def Run_meas(self):
     """
     reads a list of positions attached to the class by self.roix and self.roiy
@@ -256,7 +275,7 @@ def Run_meas(self):
         #another
         #debree in case an intelligent estimate of the wait time is ever needed
 # =============================================================================
-#     #time_wait = math.ceil((roi_size/x_pixelsize) * (roi_size/y_pixelsize)* number_frames* Dwelltime) + 1
+#     #time_wait = math.ceil((roi_size/x_pixelsize) * (roi_size/y_pixelsize)* number_frames* dwelltime) + 1
 #     #measurement time consists of line scan rate + flyback time + buffer
 # =============================================================================
         time.sleep(1) #in seconds
@@ -293,6 +312,8 @@ def _timeRun(*args):
     that the GUI remains responsive and the run may be aborted"""
     thread = threading.Thread(target=timeRun, args = args)  
     thread.start()  
+
+@pauseAfterTimeout
 def timeRun(self):
     
 
@@ -488,11 +509,11 @@ def setPositions(self):
     
 def get_timestamp():
     return datetime.now().strftime("%Y-%b-%d-%H-%M-%S")
-
+@pauseAfterTimeout
 def runPositions(self):
-    im = specpy.Imspector()
     #issue: putting below code in a function creates a RunTimeError, 
     #therefore it appears in multiple places
+    im = specpy.Imspector()
     try:
         msr = im.active_measurement()
     except:
@@ -563,7 +584,12 @@ def runPositions(self):
     
 def getYOffset():
     """handles the exception if no measurement exists, gets global y offset"""
-    msr = try_get_active_measurement()
+    im = specpy.Imspector()
+    try:
+        msr = im.active_measurement()
+    except:
+        #self.T.insert(tk.END, 'creating new measurement\n')
+        msr=im.create_measurement()
     return msr.parameters('ExpControl/scan/range/offsets/coarse/y/g_off')
 # =============================================================================
 # def try_get_active_measurement():
@@ -696,9 +722,9 @@ def saveAcquisitionSettings(self, out):
     f.write("L640_2: " + str(self.L640_2.get())+'\n')
     f.write("L595_2: " + str(self.L595_2.get())+'\n')
     f.write("L775_2: " + str(self.L775_2.get())+'\n')
-    f.write("AutofocusOnROISelect: " + str(self.AutofocusOnROISelect.get())+'\n')
-    f.write("AutofocusOnOverview: " + str(self.AutofocusOnOverview.get())+'\n')
-    f.write("circle: " + str(self.circle.get())+'\n')
+    # f.write("AutofocusOnROISelect: " + str(self.AutofocusOnROISelect.get())+'\n')
+    # f.write("AutofocusOnOverview: " + str(self.AutofocusOnOverview.get())+'\n')
+    # f.write("circle: " + str(self.circle.get())+'\n')
     f.write("peakchannels: " + str(self.peakchannels.get())+'\n')
     f.write("L485_value: " + self.L485_value.get()+'\n')
     f.write("self.L518_value: " + self.L518_value.get()+'\n')
@@ -1072,8 +1098,15 @@ def layout(self):
     MultiRUN_01.insert(tk.END, '3')
     MultiRUN_01.grid(row = 0, column = 3, sticky = 'w')
 
+    #does this do anything?    
     MultiRUN_s= tk.Label(frame_8, text='', height = 1, foreground= txtcolour, background=colour)
     MultiRUN_s.grid(row = 0, column = 0, sticky = 'w')
+    
+    timeout_label = tk.Label(frame_8, text='area timeout [s]', height = 1, foreground= txtcolour, background=colour)
+    timeout_label.grid(row = 3, column = 2, sticky = 'w')
+    timeout_entry = tk.Entry(frame_8,width = 8)
+    timeout_entry.insert(tk.END, '1200')
+    timeout_entry.grid(row = 3, column = 3, sticky = 'w')
     
     time = tk.Label(frame_8, text=' time (s):', height = 1, foreground= txtcolour, background=colour)
     time.grid(row = 2, column = 2, sticky = 'w')
@@ -1085,23 +1118,23 @@ def layout(self):
     #MultiRUN_s.grid(row = 0, column = 0, sticky = 'w')
     
     
-    Autofocus= tk.Label(frame_8, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
-    Autofocus.grid(row = 3, column = 2, sticky = tk.W)
-    var13 = tk.IntVar()
-    Autofocus_01 = tk.Checkbutton(frame_8,  variable = var13, background =colour, state = tk.DISABLED)
-    Autofocus_01.grid(row=3, column = 3, sticky = tk.W)
+    # Autofocus= tk.Label(frame_8, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
+    # Autofocus.grid(row = 3, column = 2, sticky = tk.W)
+    # var13 = tk.IntVar()
+    # Autofocus_01 = tk.Checkbutton(frame_8,  variable = var13, background =colour, state = tk.DISABLED)
+    # Autofocus_01.grid(row=3, column = 3, sticky = tk.W)
     
-    QFS= tk.Label(page1, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
-    QFS.grid(row = 3, column = 2, sticky = tk.W)
-    var14 = tk.IntVar()
-    QFS_01 = tk.Checkbutton(page1,  variable = var14, background =colour, state = tk.DISABLED)
-    QFS_01.grid(row=3, column = 3, sticky = tk.W)
+    # QFS= tk.Label(page1, text=' Autofocus:', height = 1 ,foreground= txtcolour, background=colour)
+    # QFS.grid(row = 3, column = 2, sticky = tk.W)
+    # var14 = tk.IntVar()
+    # QFS_01 = tk.Checkbutton(page1,  variable = var14, background =colour, state = tk.DISABLED)
+    # QFS_01.grid(row=3, column = 3, sticky = tk.W)
     
-    Circle= tk.Label(frame_8, text=' Circle:', height = 1 ,foreground= txtcolour, background=colour)
-    Circle.grid(row = 4, column = 2, sticky = tk.W)
-    var15 = tk.IntVar(value=0)
-    Circle_01 = tk.Checkbutton(frame_8,  variable = var15, background =colour, state = tk.DISABLED)
-    Circle_01.grid(row=4, column = 3, sticky = tk.W)
+    # Circle= tk.Label(frame_8, text=' Circle:', height = 1 ,foreground= txtcolour, background=colour)
+    # Circle.grid(row = 4, column = 2, sticky = tk.W)
+    # var15 = tk.IntVar(value=0)
+    # Circle_01 = tk.Checkbutton(frame_8,  variable = var15, background =colour, state = tk.DISABLED)
+    # Circle_01.grid(row=4, column = 3, sticky = tk.W)
     
 
     
@@ -1254,9 +1287,10 @@ def layout(self):
     self.L640_2 = var10
     self.L595_2 = var11
     self.L775_2 = var12
-    self.AutofocusOnROISelect = var13
-    self.AutofocusOnOverview = var14
-    self.circle = var15
+    # self.AutofocusOnROISelect = var13
+    # self.AutofocusOnOverview = var14
+    # self.circle = var15
+    self.timeout = timeout_entry
     self.time = time_e #e for entry
     self.peakchannels = peakchannels
     self.L485_value = L485_value_01 #don't need this 01 appendix
